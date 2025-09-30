@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, Button, Row, Col } from 'react-bootstrap';
+import Lightbox from '../Lightbox';
 
 const EditImportModal = ({ 
     editingImport, 
@@ -9,6 +10,22 @@ const EditImportModal = ({
     onCancel, 
     loading = false 
 }) => {
+    const [showLightbox, setShowLightbox] = useState(false);
+    const [lightboxImageUrl, setLightboxImageUrl] = useState('');
+    const [lightboxImageAlt, setLightboxImageAlt] = useState('');
+
+    const handleImageClick = (imageUrl, imageAlt) => {
+        if (imageUrl) {
+            setLightboxImageUrl(imageUrl);
+            setLightboxImageAlt(imageAlt);
+            setShowLightbox(true);
+        }
+    };
+
+    const handleCloseLightbox = () => {
+        setShowLightbox(false);
+    };
+
     if (!editingImport) return null;
 
     return (
@@ -62,8 +79,20 @@ const EditImportModal = ({
                                                             backgroundColor: '#fff3cd',
                                                             display: 'flex',
                                                             alignItems: 'center',
-                                                            justifyContent: 'center'
+                                                            justifyContent: 'center',
+                                                            cursor: 'pointer',
+                                                            transition: 'transform 0.2s ease, box-shadow 0.2s ease'
                                                         }}
+                                                        onClick={() => handleImageClick(quote.imageUrl, 'Produto')}
+                                                        onMouseEnter={(e) => {
+                                                            e.currentTarget.style.transform = 'scale(1.02)';
+                                                            e.currentTarget.style.boxShadow = '0 4px 15px rgba(255, 193, 7, 0.3)';
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            e.currentTarget.style.transform = 'scale(1)';
+                                                            e.currentTarget.style.boxShadow = 'none';
+                                                        }}
+                                                        title="Clique para ampliar a imagem"
                                                     >
                                                         <img 
                                                             src={quote.imageUrl} 
@@ -239,6 +268,14 @@ const EditImportModal = ({
                     </div>
                 </Card.Body>
             </Card>
+
+            {/* Lightbox */}
+            <Lightbox
+                isOpen={showLightbox}
+                onClose={handleCloseLightbox}
+                imageUrl={lightboxImageUrl}
+                imageAlt={lightboxImageAlt}
+            />
         </div>
     );
 };

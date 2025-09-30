@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, Button, Badge } from 'react-bootstrap';
 import ImageUpload from './ImageUpload';
+import Lightbox from '../Lightbox';
 
 const QuoteCard = ({ 
     quote, 
@@ -9,6 +10,17 @@ const QuoteCard = ({
     onToggleSelect = null,
     onImageUpdate = null
 }) => {
+    const [showLightbox, setShowLightbox] = useState(false);
+
+    const handleImageClick = () => {
+        if (quote.imageUrl) {
+            setShowLightbox(true);
+        }
+    };
+
+    const handleCloseLightbox = () => {
+        setShowLightbox(false);
+    };
     const formatCurrency = (value) => {
         return new Intl.NumberFormat('pt-BR', {
             style: 'currency',
@@ -54,8 +66,20 @@ const QuoteCard = ({
                                 backgroundColor: '#f8f9fa',
                                 display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: 'center'
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                transition: 'transform 0.2s ease, box-shadow 0.2s ease'
                             }}
+                            onClick={handleImageClick}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.transform = 'scale(1.02)';
+                                e.currentTarget.style.boxShadow = '0 4px 15px rgba(0,0,0,0.1)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = 'scale(1)';
+                                e.currentTarget.style.boxShadow = 'none';
+                            }}
+                            title="Clique para ampliar a imagem"
                         >
                             <img 
                                 src={quote.imageUrl} 
@@ -304,6 +328,14 @@ const QuoteCard = ({
                 </div>
             </Card.Body>
         </Card>
+
+        {/* Lightbox */}
+        <Lightbox
+            isOpen={showLightbox}
+            onClose={handleCloseLightbox}
+            imageUrl={quote.imageUrl}
+            imageAlt={quote.name || quote.description || 'Produto'}
+        />
     );
 };
 
