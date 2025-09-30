@@ -1,0 +1,37 @@
+/* Estilos globais da aplicação */
+.app-container {
+  min-height: 100vh;
+}
+
+/* Estilos para componentes específicos */
+.admin-dashboard {
+  padding: 2rem;
+  background-color: white;
+  min-height: 100vh;
+}
+
+.factory-setup {
+  padding: 2rem;
+  background-color: white;
+  min-height: 100vh;
+}
+
+/* Estilos para títulos */
+.page-title {
+  font-size: 1.875rem;
+  font-weight: bold;
+  color: #1f2937;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+/* Estilos para texto */
+.text-gray-600 {
+  color: #4b5563;
+}
+
+/* Estilos para páginas de erro */
+.error-page {
+  padding: 2rem;
+}
