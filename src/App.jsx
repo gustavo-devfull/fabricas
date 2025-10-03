@@ -11,6 +11,7 @@ import ImportData from './pages/admin/ImportData';
 import UserManagement from './pages/admin/UserManagement';
 import SelectedProducts from './pages/admin/SelectedProducts';
 import CreateQuote from './pages/admin/CreateQuote';
+import Debug from './pages/Debug';
 
 function App() {
   return (
@@ -18,6 +19,9 @@ function App() {
       <Routes>
         {/* Rota Pública: Login */}
         <Route path="/login" element={<Login />} />
+        
+        {/* Rota Pública: Debug */}
+        <Route path="/debug" element={<Debug />} />
         
         {/* Agrupamento de Rotas Protegidas com o Layout */}
         <Route element={<PrivateRoute><AdminLayout /></PrivateRoute>}>
@@ -34,7 +38,20 @@ function App() {
         </Route>
         
         {/* Rota para página não encontrada (404) */}
-        <Route path="*" element={<div className="p-8">404 - Página Não Encontrada</div>} />
+        <Route path="*" element={
+          <div className="p-8 text-center" style={{backgroundColor: '#f8f9fa', minHeight: '100vh'}}>
+            <img src="/RAVI-LOGO-COLOR.svg" alt="Ravi Logo" style={{width: '200px', marginBottom: '2rem'}} />
+            <h2 style={{color: '#dc3545'}}>404 - Página Não Encontrada</h2>
+            <p>O link que você está tentando acessar não existe.</p>
+            <p>Clique <a href="/admin/dashboard" style={{color: '#007bff', textDecoration: 'none'}}>aqui</a> para voltar ao dashboard.</p>
+            <p style={{color: '#6c757d', fontSize: '0.8rem'}}>ID: {Date.now()}</p>
+            <div style={{marginTop: '2rem'}}>
+              <a href="/login" style={{color: '#28a745', marginRight: '1rem'}}>Login</a>
+              <a href="/admin/create-quote" style={{color: '#007bff', marginRight: '1rem'}}>Criar Cotação</a>
+              <a href="/admin/selected-products" style={{color: '#6f42c1'}}>Produtos Selecionados</a>
+            </div>
+          </div>
+        } />
       </Routes>
     </Router>
   );

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset='utf-8'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <meta name='viewport' content='width=device-width,initial-scale=1'>
+    <title>Ravi Import System</title>
+    <link rel='icon' type='image/svg+xml' href='/vite.svg' />
+    <meta name='description' content='Sistema de gerenciamento de importações Ravi'>
+    
+    <!-- Google Fonts - DM Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap" rel="stylesheet">
+    
+    <!-- Google Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+<body>
+    <div id='root'></div>
+    
+    <!-- Fallback content for debugging -->
+    <noscript>
+        <div style="text-align: center; padding: 2rem; font-family: Arial, sans-serif;">
+            <h2>⚠️ JavaScript Desabilitado</h2>
+            <p>Este sistema requer JavaScript para funcionar.</p>
+            <p>Por favor, habilite JavaScript e recarregue a página.</p>
+        </div>
+    </noscript>
+    
+    <!-- Debug info (only visible if JS fails to load) -->
+    <div id="debug-info" style="display: none; text-align: center; padding: 1rem; background: #f8f9fa; border-top: 1px solid #dee2e6;">
+        <small style="color: #6c757d;">
+            Ravi Import System v1.0 | 
+            Time: <span id="debug-time"></span> | 
+            <a href="/debug" style="color: #007bff;">Debug Mode</a> |
+            <a href="/login" style="color: #28a745;">Login</a>
+        </small>
+    </div>
+    
+    <script>
+        // Show debug info after 3 seconds if React hasn't loaded
+        setTimeout(() => {
+            if (document.getElementById('root').children.length === 0) {
+                document.getElementById('debug-info').style.display = 'block';
+                document.getElementById('debug-time').textContent = new Date().toISOString();
+            }
+        }, 3000);
+        
+        // Console logging for debugging
+        console.log('🚀 Ravi Import System loading...', {
+            timestamp: new Date().toISOString(),
+            userAgent: navigator.userAgent,
+            url: window.location.href,
+            readyState: document.readyState
+        });
+        
+        // Global error handler
+        window.addEventListener('error', (event) => {
+            console.error('❌ Global Error:', {
+                message: event.message,
+                filename: event.filename,
+                lineno: event.lineno,
+                colno: event.colno,
+                error: event.error
+            });
+        });
+        
+        // Unhandled promise rejection handler
+        window.addEventListener('unhandledrejection', (event) => {
+            console.error('❌ Unhandled Promise Rejection:', event.reason);
+        });
+    </script>
+</body>
+</html>
