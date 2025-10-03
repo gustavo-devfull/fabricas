@@ -153,6 +153,32 @@ const EditImportModal = ({
                                                 />
                                             </div>
 
+                                            {/* CTNS e Unit/Ctn */}
+                                            <div className="row g-1 mb-2">
+                                                <div className="col-6">
+                                                    <label className="form-label fw-bold" style={{fontSize: '0.7rem', marginBottom: '2px'}}>CTNS</label>
+                                                    <input 
+                                                        type="number" 
+                                                        className="form-control form-control-sm" 
+                                                        value={quote.ctns || 0} 
+                                                        onChange={(e) => onUpdateQuote(index, 'ctns', parseFloat(e.target.value) || 0)}
+                                                        step="0.01"
+                                                        style={{fontSize: '0.8rem'}}
+                                                    />
+                                                </div>
+                                                <div className="col-6">
+                                                    <label className="form-label fw-bold" style={{fontSize: '0.7rem', marginBottom: '2px'}}>UNIT/CTN</label>
+                                                    <input 
+                                                        type="number" 
+                                                        className="form-control form-control-sm" 
+                                                        value={quote.unitCtn || 0} 
+                                                        onChange={(e) => onUpdateQuote(index, 'unitCtn', parseFloat(e.target.value) || 0)}
+                                                        step="0.01"
+                                                        style={{fontSize: '0.8rem'}}
+                                                    />
+                                                </div>
+                                            </div>
+
                                             {/* QTY e Unit Price */}
                                             <div className="row g-1 mb-2">
                                                 <div className="col-6">
@@ -167,7 +193,7 @@ const EditImportModal = ({
                                                     />
                                                 </div>
                                                 <div className="col-6">
-                                                    <label className="form-label fw-bold" style={{fontSize: '0.7rem', marginBottom: '2px'}}>PREÇO</label>
+                                                    <label className="form-label fw-bold" style={{fontSize: '0.7rem', marginBottom: '2px'}}>PREÇO UNIT.</label>
                                                     <input 
                                                         type="number" 
                                                         className="form-control form-control-sm" 
@@ -199,28 +225,166 @@ const EditImportModal = ({
                                                 />
                                             </div>
 
-                                            {/* CBM */}
+                                            {/* Dimensões - L, W, H */}
+                                            <div className="row g-1 mb-2">
+                                                <div className="col-4">
+                                                    <label className="form-label fw-bold" style={{fontSize: '0.7rem', marginBottom: '2px'}}>L (cm)</label>
+                                                    <input 
+                                                        type="number" 
+                                                        className="form-control form-control-sm" 
+                                                        value={quote.length || 0} 
+                                                        onChange={(e) => onUpdateQuote(index, 'length', parseFloat(e.target.value) || 0)}
+                                                        step="0.01"
+                                                        style={{fontSize: '0.8rem'}}
+                                                    />
+                                                </div>
+                                                <div className="col-4">
+                                                    <label className="form-label fw-bold" style={{fontSize: '0.7rem', marginBottom: '2px'}}>W (cm)</label>
+                                                    <input 
+                                                        type="number" 
+                                                        className="form-control form-control-sm" 
+                                                        value={quote.width || 0} 
+                                                        onChange={(e) => onUpdateQuote(index, 'width', parseFloat(e.target.value) || 0)}
+                                                        step="0.01"
+                                                        style={{fontSize: '0.8rem'}}
+                                                    />
+                                                </div>
+                                                <div className="col-4">
+                                                    <label className="form-label fw-bold" style={{fontSize: '0.7rem', marginBottom: '2px'}}>H (cm)</label>
+                                                    <input 
+                                                        type="number" 
+                                                        className="form-control form-control-sm" 
+                                                        value={quote.height || 0} 
+                                                        onChange={(e) => onUpdateQuote(index, 'height', parseFloat(e.target.value) || 0)}
+                                                        step="0.01"
+                                                        style={{fontSize: '0.8rem'}}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* CBM e CBM Total */}
+                                            <div className="row g-1 mb-2">
+                                                <div className="col-6">
+                                                    <label className="form-label fw-bold" style={{fontSize: '0.7rem', marginBottom: '2px'}}>CBM</label>
+                                                    <input 
+                                                        type="number" 
+                                                        className="form-control form-control-sm" 
+                                                        value={quote.cbm || 0} 
+                                                        onChange={(e) => onUpdateQuote(index, 'cbm', parseFloat(e.target.value) || 0)}
+                                                        step="0.01"
+                                                        style={{fontSize: '0.8rem'}}
+                                                    />
+                                                </div>
+                                                <div className="col-6">
+                                                    <label className="form-label fw-bold" style={{fontSize: '0.7rem', marginBottom: '2px'}}>CBM TOTAL</label>
+                                                    <input 
+                                                        type="number" 
+                                                        className="form-control form-control-sm" 
+                                                        value={quote.cbmTotal || 0} 
+                                                        onChange={(e) => onUpdateQuote(index, 'cbmTotal', parseFloat(e.target.value) || 0)}
+                                                        step="0.01"
+                                                        style={{fontSize: '0.8rem'}}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Pesos - Gross Weight e Net Weight */}
+                                            <div className="row g-1 mb-2">
+                                                <div className="col-6">
+                                                    <label className="form-label fw-bold" style={{fontSize: '0.7rem', marginBottom: '2px'}}>PESO BRUTO (KG)</label>
+                                                    <input 
+                                                        type="number" 
+                                                        className="form-control form-control-sm" 
+                                                        value={quote.grossWeight || 0} 
+                                                        onChange={(e) => onUpdateQuote(index, 'grossWeight', parseFloat(e.target.value) || 0)}
+                                                        step="0.01"
+                                                        style={{fontSize: '0.8rem'}}
+                                                    />
+                                                </div>
+                                                <div className="col-6">
+                                                    <label className="form-label fw-bold" style={{fontSize: '0.7rem', marginBottom: '2px'}}>PESO LÍQUIDO (KG)</label>
+                                                    <input 
+                                                        type="number" 
+                                                        className="form-control form-control-sm" 
+                                                        value={quote.netWeight || 0} 
+                                                        onChange={(e) => onUpdateQuote(index, 'netWeight', parseFloat(e.target.value) || 0)}
+                                                        step="0.01"
+                                                        style={{fontSize: '0.8rem'}}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Total Gross Weight e Total Net Weight */}
+                                            <div className="row g-1 mb-2">
+                                                <div className="col-6">
+                                                    <label className="form-label fw-bold" style={{fontSize: '0.7rem', marginBottom: '2px'}}>T.G.W (KG)</label>
+                                                    <input 
+                                                        type="number" 
+                                                        className="form-control form-control-sm" 
+                                                        value={quote.totalGrossWeight || 0} 
+                                                        onChange={(e) => onUpdateQuote(index, 'totalGrossWeight', parseFloat(e.target.value) || 0)}
+                                                        step="0.01"
+                                                        style={{fontSize: '0.8rem'}}
+                                                    />
+                                                </div>
+                                                <div className="col-6">
+                                                    <label className="form-label fw-bold" style={{fontSize: '0.7rem', marginBottom: '2px'}}>T.N.W (KG)</label>
+                                                    <input 
+                                                        type="number" 
+                                                        className="form-control form-control-sm" 
+                                                        value={quote.totalNetWeight || 0} 
+                                                        onChange={(e) => onUpdateQuote(index, 'totalNetWeight', parseFloat(e.target.value) || 0)}
+                                                        step="0.01"
+                                                        style={{fontSize: '0.8rem'}}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Peso Unitário */}
                                             <div className="mb-2">
-                                                <label className="form-label fw-bold" style={{fontSize: '0.7rem', marginBottom: '2px'}}>CBM</label>
+                                                <label className="form-label fw-bold" style={{fontSize: '0.7rem', marginBottom: '2px'}}>PESO UNITÁRIO (G)</label>
                                                 <input 
                                                     type="number" 
                                                     className="form-control form-control-sm" 
-                                                    value={quote.cbm || 0} 
-                                                    onChange={(e) => onUpdateQuote(index, 'cbm', parseFloat(e.target.value) || 0)}
+                                                    value={quote.pesoUnitario || 0} 
+                                                    onChange={(e) => onUpdateQuote(index, 'pesoUnitario', parseFloat(e.target.value) || 0)}
                                                     step="0.01"
                                                     style={{fontSize: '0.8rem'}}
                                                 />
                                             </div>
 
-                                            {/* Gross Weight */}
+                                            {/* English Description */}
                                             <div className="mb-2">
-                                                <label className="form-label fw-bold" style={{fontSize: '0.7rem', marginBottom: '2px'}}>PESO (KG)</label>
+                                                <label className="form-label fw-bold" style={{fontSize: '0.7rem', marginBottom: '2px'}}>DESCRIÇÃO INGLÊS</label>
                                                 <input 
-                                                    type="number" 
+                                                    type="text" 
                                                     className="form-control form-control-sm" 
-                                                    value={quote.grossWeight || 0} 
-                                                    onChange={(e) => onUpdateQuote(index, 'grossWeight', parseFloat(e.target.value) || 0)}
-                                                    step="0.01"
+                                                    value={quote.englishDescription || ''} 
+                                                    onChange={(e) => onUpdateQuote(index, 'englishDescription', e.target.value)}
+                                                    style={{fontSize: '0.8rem'}}
+                                                />
+                                            </div>
+
+                                            {/* Import */}
+                                            <div className="mb-2">
+                                                <label className="form-label fw-bold" style={{fontSize: '0.7rem', marginBottom: '2px'}}>IMPORT</label>
+                                                <input 
+                                                    type="text" 
+                                                    className="form-control form-control-sm" 
+                                                    value={quote.import || ''} 
+                                                    onChange={(e) => onUpdateQuote(index, 'import', e.target.value)}
+                                                    style={{fontSize: '0.8rem'}}
+                                                />
+                                            </div>
+
+                                            {/* Import Name */}
+                                            <div className="mb-2">
+                                                <label className="form-label fw-bold" style={{fontSize: '0.7rem', marginBottom: '2px'}}>NOME IMPORTAÇÃO</label>
+                                                <input 
+                                                    type="text" 
+                                                    className="form-control form-control-sm" 
+                                                    value={quote.importName || ''} 
+                                                    onChange={(e) => onUpdateQuote(index, 'importName', e.target.value)}
                                                     style={{fontSize: '0.8rem'}}
                                                 />
                                             </div>

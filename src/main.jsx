@@ -5,11 +5,14 @@ import App from './App.jsx';
 import 'bootstrap/dist/css/bootstrap.min.css'; 
 import './index.css'; 
 import { AuthProvider } from './contexts/AuthContext.jsx'; 
+import { MUIProvider } from './theme/MUIProvider.jsx';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <AuthProvider>
-      <App />
-    </AuthProvider>
+    <MUIProvider>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </MUIProvider>
   </React.StrictMode>,
 );

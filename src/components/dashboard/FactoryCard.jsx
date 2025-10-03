@@ -1,175 +1,161 @@
 import React from 'react';
-import { Card, Button, Badge } from 'react-bootstrap';
+import { Card, CardContent, Typography, Button, Chip, Box, IconButton } from '@mui/material';
+import { Edit, Assessment, Upload, Delete, LocationOn, Category } from '@mui/icons-material';
 
 const FactoryCard = ({ 
     factory, 
     onEdit, 
     onViewQuotes, 
     onImport, 
-    onDelete 
+    onDelete,
+    isSelected = false
 }) => {
-    const getStatusBadge = (status) => {
-        const statusConfig = {
-            'ativa': { variant: 'success', text: 'Ativa' },
-            'manutencao': { variant: 'warning', text: 'Manutenção' },
-            'inativa': { variant: 'secondary', text: 'Inativa' }
-        };
-        
-        const config = statusConfig[status] || statusConfig['inativa'];
-        return (
-            <Badge 
-                className={`px-1 py-1 ${config.variant === 'warning' ? 'text-dark' : ''}`}
-                style={{
-                    fontSize: '0.65rem',
-                    borderRadius: '12px',
-                    fontWeight: '600',
-                    backgroundColor: config.variant === 'success' ? '#28a745' : 
-                                   config.variant === 'warning' ? '#ffc107' : '#6c757d'
-                }}
-            >
-                {config.text}
-            </Badge>
-        );
-    };
 
     return (
         <Card 
-            className="shadow-sm h-100 factory-card" 
-            style={{
-                border: 'none',
-                borderRadius: '12px',
-                transition: 'all 0.3s ease',
-                background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
-                cursor: 'pointer'
-            }}
-            onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-4px)';
-                e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.15)';
-            }}
-            onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
+            sx={{ 
+                height: '100%',
+                border: isSelected ? '2px solid #007bff' : 'none',
+                background: isSelected 
+                    ? 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)' 
+                    : 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+                '&:hover': !isSelected ? {
+                    transform: 'translateY(-4px)',
+                    boxShadow: '0 8px 25px rgba(0,0,0,0.15)',
+                } : {}
             }}
         >
-            <Card.Body className="d-flex flex-column justify-content-between p-3">
-                {/* Cabeçalho com nome e status */}
-                <div className="mb-2">
-                    <div className="d-flex justify-content-between align-items-start mb-1">
-                        <h6 
-                            className="mb-0 text-truncate fw-bold" 
-                            style={{
-                                maxWidth: '120px',
-                                color: '#2c3e50',
-                                fontSize: '0.95rem'
-                            }} 
-                            title={factory.nomeFabrica}
+            <CardContent sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                {/* Cabeçalho com nome */}
+                <Box>
+                    <Box sx={{ mb: 1 }}>
+                        <Typography 
+                            variant="h6" 
+                            sx={{ 
+                                fontWeight: 'bold',
+                                color: isSelected ? '#007bff' : '#2c3e50',
+                                fontSize: '0.95rem',
+                                lineHeight: 1.2,
+                                wordWrap: 'break-word',
+                                overflowWrap: 'break-word',
+                                hyphens: 'auto'
+                            }}
                         >
                             {factory.nomeFabrica}
-                        </h6>
-                        {getStatusBadge(factory.status)}
-                    </div>
+                        </Typography>
+                        {isSelected && (
+                            <Chip 
+                                label="Selecionada"
+                                color="primary"
+                                size="small"
+                                sx={{
+                                    fontSize: '0.6rem',
+                                    fontWeight: '600',
+                                    height: '20px',
+                                    mt: 0.5
+                                }}
+                            />
+                        )}
+                    </Box>
                     
                     {/* Informações adicionais compactas */}
-                    <div className="text-muted" style={{fontSize: '0.75rem'}}>
-                        <div className="d-flex align-items-center mb-1">
-                            <span className="material-icons me-1" style={{fontSize: '12px'}}>location_on</span>
-                            <span 
-                                className="text-truncate" 
-                                style={{maxWidth: '100px'}} 
+                    <Box sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <LocationOn sx={{ fontSize: '12px' }} />
+                            <Typography 
+                                variant="body2" 
+                                sx={{ 
+                                    fontSize: '0.75rem',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    flex: 1
+                                }}
                                 title={factory.localizacao}
                             >
                                 {factory.localizacao}
-                            </span>
-                        </div>
-                        <div className="d-flex align-items-center">
-                            <span className="material-icons me-1" style={{fontSize: '12px'}}>category</span>
-                            <span 
-                                className="text-truncate" 
-                                style={{maxWidth: '100px'}} 
+                            </Typography>
+                            <Category sx={{ fontSize: '12px', ml: 1 }} />
+                            <Typography 
+                                variant="body2" 
+                                sx={{ 
+                                    fontSize: '0.75rem',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    flex: 1
+                                }}
                                 title={factory.segmento}
                             >
                                 {factory.segmento}
-                            </span>
-                        </div>
-                    </div>
-                </div>
+                            </Typography>
+                        </Box>
+                    </Box>
+                </Box>
                 
                 {/* Botões de ação */}
-                <div className="d-flex gap-1 justify-content-start">
-                    <Button 
-                        variant="outline-primary" 
-                        size="sm"
+                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', mt: 2 }}>
+                    <IconButton 
+                        color="primary"
                         onClick={() => onEdit(factory)}
                         title="Editar Fábrica"
-                        className="action-btn"
-                        style={{
-                            borderRadius: '6px',
-                            padding: '6px 8px',
-                            borderWidth: '1px',
-                            fontWeight: '500',
-                            minWidth: '32px',
-                            filter: 'invert(1)',
-                            backgroundColor: 'transparent'
+                        sx={{
+                            backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                            '&:hover': {
+                                backgroundColor: '#0d6efd',
+                                color: 'white'
+                            }
                         }}
                     >
-                        <span className="material-icons" style={{fontSize: '16px'}}>edit</span>
-                    </Button>
-                    <Button 
-                        variant="outline-info" 
-                        size="sm"
+                        <Edit />
+                    </IconButton>
+                    
+                    <IconButton 
+                        color="info"
                         onClick={() => onViewQuotes(factory.id)}
                         title="Ver Cotações"
-                        className="action-btn"
-                        style={{
-                            borderRadius: '6px',
-                            padding: '6px 8px',
-                            borderWidth: '1px',
-                            fontWeight: '500',
-                            minWidth: '32px',
-                            filter: 'invert(1)',
-                            backgroundColor: 'transparent'
+                        sx={{
+                            backgroundColor: 'rgba(13, 202, 240, 0.1)',
+                            '&:hover': {
+                                backgroundColor: '#0dcaf0',
+                                color: 'white'
+                            }
                         }}
                     >
-                        <span className="material-icons" style={{fontSize: '16px'}}>assessment</span>
-                    </Button>
-                    <Button 
-                        variant="outline-success" 
-                        size="sm"
+                        <Assessment />
+                    </IconButton>
+                    
+                    <IconButton 
+                        color="success"
                         onClick={() => onImport(factory.id)}
                         title="Importar Cotações"
-                        className="action-btn"
-                        style={{
-                            borderRadius: '6px',
-                            padding: '6px 8px',
-                            borderWidth: '1px',
-                            fontWeight: '500',
-                            minWidth: '32px',
-                            filter: 'invert(1)',
-                            backgroundColor: 'transparent'
+                        sx={{
+                            backgroundColor: 'rgba(25, 135, 84, 0.1)',
+                            '&:hover': {
+                                backgroundColor: '#198754',
+                                color: 'white'
+                            }
                         }}
                     >
-                        <span className="material-icons" style={{fontSize: '16px'}}>upload</span>
-                    </Button>
-                    <Button 
-                        variant="outline-danger" 
-                        size="sm"
+                        <Upload />
+                    </IconButton>
+                    
+                    <IconButton 
+                        color="error"
                         onClick={() => onDelete(factory.id)}
                         title="Excluir Fábrica"
-                        className="action-btn"
-                        style={{
-                            borderRadius: '6px',
-                            padding: '6px 8px',
-                            borderWidth: '1px',
-                            fontWeight: '500',
-                            minWidth: '32px',
-                            filter: 'invert(1)',
-                            backgroundColor: 'transparent'
+                        sx={{
+                            backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                            '&:hover': {
+                                backgroundColor: '#dc3545',
+                                color: 'white'
+                            }
                         }}
                     >
-                        <span className="material-icons" style={{fontSize: '16px'}}>delete</span>
-                    </Button>
-                </div>
-            </Card.Body>
+                        <Delete />
+                    </IconButton>
+                </Box>
+            </CardContent>
         </Card>
     );
 };

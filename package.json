@@ -1,5 +1,5 @@
 {
-  "name": "fabricas-system",
+  "name": "ravi-import",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,10 +10,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
     "@material-tailwind/react": "^1.2.3",
+    "@mui/icons-material": "^7.3.2",
+    "@mui/material": "^7.3.2",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "bootstrap": "^5.3.8",
+    "exceljs": "^4.4.0",
     "firebase": "^12.3.0",
     "react": "^18.2.0",
     "react-bootstrap": "^2.10.10",

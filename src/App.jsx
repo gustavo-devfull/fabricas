@@ -9,6 +9,8 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import FactorySetup from './pages/admin/FactorySetup';
 import ImportData from './pages/admin/ImportData';
 import UserManagement from './pages/admin/UserManagement';
+import SelectedProducts from './pages/admin/SelectedProducts';
+import CreateQuote from './pages/admin/CreateQuote';
 
 function App() {
   return (
@@ -27,6 +29,8 @@ function App() {
             <Route path="/admin/setup" element={<FactorySetup />} />
             <Route path="/admin/import" element={<ImportData />} />
             <Route path="/admin/users" element={<UserManagement />} />
+            <Route path="/admin/selected-products" element={<SelectedProducts />} />
+            <Route path="/admin/create-quote" element={<CreateQuote />} />
         </Route>
         
         {/* Rota para página não encontrada (404) */}

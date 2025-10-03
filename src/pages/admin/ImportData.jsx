@@ -81,7 +81,7 @@ const ImportData = () => {
                     englishDescription: String(item['English Description'] || item['englishDescription'] || item['Descrição Inglesa'] || '').trim(),
                     photo: String(item['PHOTO'] || item['photo'] || item['Foto'] || '').trim(),
                     ctns: Number(item['CTNS'] || item['ctns'] || item['Caixas'] || 0),
-                    unitPerCtn: Number(item['UNIT/CTN'] || item['unitPerCtn'] || item['Unidade/Caixa'] || 0),
+                    unitCtn: Number(item['UNIT/CTN'] || item['unitCtn'] || item['unitPerCtn'] || item['Unidade/Caixa'] || 0),
                     qty: Number(item['QTY'] || item['qty'] || item['Quantidade'] || 0),
                     unitPrice: Number(item['U.PRICE'] || item['unitPrice'] || item['Preço Unitário'] || 0),
                     unit: String(item['UNIT'] || item['unit'] || item['Unidade'] || 'UN').trim(),
@@ -95,7 +95,7 @@ const ImportData = () => {
                     totalGrossWeight: Number(item['T.G.W'] || item['totalGrossWeight'] || item['Peso Bruto Total'] || 0),
                     netWeight: Number(item['N.W'] || item['netWeight'] || item['Peso Líquido'] || 0),
                     totalNetWeight: Number(item['T.N.W'] || item['totalNetWeight'] || item['Peso Líquido Total'] || 0),
-                    unitWeight: Number(item['Peso Unitário(g)'] || item['unitWeight'] || item['Peso Unitário'] || 0),
+                    pesoUnitario: Number(item['Peso Unitário(g)'] || item['pesoUnitario'] || item['unitWeight'] || item['Peso Unitário'] || 0),
                     factoryId: selectedFactory,
                     factoryName: factories.find(f => f.id === selectedFactory)?.nomeFabrica || 'N/A'
                 }));

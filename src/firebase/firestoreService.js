@@ -232,7 +232,8 @@ export const getQuoteImportsByFactory = async (factoryId) => {
                 quotes: [],
                 factoryId: factoryId,
                 editable: true,
-                isEditing: false
+                isEditing: false,
+                importName: quote.importName || null // Incluir o nome da importação se existir
             });
         }
         
@@ -240,6 +241,11 @@ export const getQuoteImportsByFactory = async (factoryId) => {
         importData.count += 1;
         importData.totalValue += quote.amount || 0;
         importData.quotes.push(quote);
+        
+        // Se alguma cotação desta importação tem importName, usar esse nome
+        if (quote.importName && !importData.importName) {
+            importData.importName = quote.importName;
+        }
     });
     
     // Converter para array e ordenar por data/hora (mais recente primeiro)

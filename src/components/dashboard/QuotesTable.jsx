@@ -11,9 +11,12 @@ const QuotesTable = ({
     onSelectionChange, 
     onBulkAction,
     onImageUpdate,
-    onRefresh
+    onRefresh,
+    selectedForOrder = [],
+    onToggleOrderSelect = null,
+    onImportImages = null,
+    onUpdateImport = null
 }) => {
-    const totalValue = quotes.reduce((total, quote) => total + (quote.amount || 0), 0);
 
     const handleToggleSelect = (quoteId) => {
         const isSelected = selectedQuotes.includes(quoteId);
@@ -33,10 +36,6 @@ const QuotesTable = ({
                         <span className="material-icons me-2" style={{fontSize: '20px', verticalAlign: 'middle'}}>grid_view</span>
                         Produtos ({quotes.length})
                     </h6>
-                    <Badge bg="success" className="px-3 py-2">
-                        <span className="material-icons me-1" style={{fontSize: '16px'}}>attach_money</span>
-                        Valor Total: R$ {totalValue.toFixed(2)}
-                    </Badge>
                 </div>
                 <div className="d-flex gap-2">
                     <Button
@@ -71,19 +70,23 @@ const QuotesTable = ({
             
             {/* Cards de Cotações */}
             <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
-                <Row className="g-3">
+                <div className="d-flex flex-column gap-3">
                     {quotes.map((quote) => (
-                        <Col key={quote.id} xs={12} sm={6} md={4} lg={3} xl={2}>
+                        <div key={quote.id} style={{ width: '100%' }}>
                             <QuoteCard
                                 quote={quote}
                                 onDeleteQuote={onDeleteQuote}
                                 isSelected={selectedQuotes.includes(quote.id)}
                                 onToggleSelect={showMultiSelect ? () => handleToggleSelect(quote.id) : null}
                                 onImageUpdate={onImageUpdate}
+                                isSelectedForOrder={selectedForOrder.includes(quote.id)}
+                                onToggleOrderSelect={onToggleOrderSelect}
+                                onImportImages={onImportImages}
+                                onUpdateImport={onUpdateImport}
                             />
-                        </Col>
+                        </div>
                     ))}
-                </Row>
+                </div>
                 
                 {quotes.length === 0 && (
                     <div className="text-center p-5">

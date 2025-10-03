@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Button, Spinner, Alert, Badge } from 'react-bootstrap';
+import React, { useState, useRef } from 'react';
+import { IconButton } from '@mui/material';
+import { CloudUpload, Delete } from '@mui/icons-material';
 import imageUploadService from '../../services/imageUploadService';
 import { updateDoc, doc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
@@ -7,21 +8,7 @@ import { db } from '../../firebase/config';
 const ImageUpload = ({ quote, onImageUpdate }) => {
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState(null);
-    const [storageInfo, setStorageInfo] = useState(null);
     const fileInputRef = useRef(null);
-
-    // Atualizar informações de armazenamento
-    useEffect(() => {
-        const updateStorageInfo = () => {
-            const info = imageUploadService.getStorageInfo();
-            setStorageInfo(info);
-        };
-        
-        updateStorageInfo();
-        // Atualizar a cada 30 segundos
-        const interval = setInterval(updateStorageInfo, 30000);
-        return () => clearInterval(interval);
-    }, []);
 
     const handleFileSelect = async (event) => {
         const file = event.target.files[0];
@@ -58,10 +45,6 @@ const ImageUpload = ({ quote, onImageUpdate }) => {
 
             // Notificar componente pai
             onImageUpdate(imageUrl);
-            
-            // Atualizar informações de armazenamento
-            const info = imageUploadService.getStorageInfo();
-            setStorageInfo(info);
             
         } catch (err) {
             console.error('Erro no upload:', err);
@@ -115,123 +98,67 @@ const ImageUpload = ({ quote, onImageUpdate }) => {
     };
 
     return (
-        <div className="image-upload-container">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
             {error && (
-                <Alert variant="danger" className="mb-2" style={{fontSize: '0.7rem', padding: '4px 8px'}}>
+                <div style={{
+                    fontSize: '0.7rem',
+                    color: 'red',
+                    backgroundColor: '#ffebee',
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    marginBottom: '4px'
+                }}>
                     {error}
-                </Alert>
-            )}
-
-            {/* Informações de armazenamento */}
-            {storageInfo && (
-                <div className="mb-2">
-                    <Badge 
-                        bg={storageInfo.usagePercent > 80 ? 'warning' : 'info'} 
-                        className="px-2 py-1" 
-                        style={{fontSize: '0.6rem'}}
-                    >
-                        <span className="material-icons me-1" style={{fontSize: '10px'}}>storage</span>
-                        {storageInfo.imageCount} imagens • {(storageInfo.totalSize / 1024 / 1024).toFixed(1)}MB
-                        {storageInfo.usagePercent > 80 && ' (Quase cheio!)'}
-                    </Badge>
                 </div>
             )}
             
-            <div className="d-flex gap-1">
-                <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileSelect}
-                    style={{ display: 'none' }}
-                />
-                
-                <Button
-                    variant="outline-primary"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileSelect}
+                style={{ display: 'none' }}
+            />
+            
+            <IconButton
+                size="small"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                sx={{
+                    backgroundColor: 'primary.main',
+                    color: 'white',
+                    '&:hover': {
+                        backgroundColor: 'primary.dark'
+                    },
+                    '&:disabled': {
+                        backgroundColor: 'grey.300'
+                    }
+                }}
+                title="Upload de imagem"
+            >
+                <CloudUpload fontSize="small" />
+            </IconButton>
+
+            {quote.imageUrl && (
+                <IconButton
+                    size="small"
+                    onClick={handleRemoveImage}
                     disabled={uploading}
-                    style={{
-                        fontSize: '0.7rem',
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        borderWidth: '1px'
+                    sx={{
+                        backgroundColor: 'error.main',
+                        color: 'white',
+                        '&:hover': {
+                            backgroundColor: 'error.dark'
+                        },
+                        '&:disabled': {
+                            backgroundColor: 'grey.300'
+                        }
                     }}
+                    title="Remover imagem"
                 >
-                    {uploading ? (
-                        <Spinner size="sm" />
-                    ) : (
-                        <span className="material-icons" style={{fontSize: '12px'}}>upload</span>
-                    )}
-                </Button>
-
-                {quote.imageUrl && (
-                    <Button
-                        variant="outline-danger"
-                        size="sm"
-                        onClick={handleRemoveImage}
-                        disabled={uploading}
-                        style={{
-                            fontSize: '0.7rem',
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            borderWidth: '1px'
-                        }}
-                    >
-                        <span className="material-icons" style={{fontSize: '12px'}}>delete</span>
-                    </Button>
-                )}
-
-                {/* Botão para limpar imagens antigas */}
-                {storageInfo && storageInfo.usagePercent > 70 && (
-                    <Button
-                        variant="outline-warning"
-                        size="sm"
-                        onClick={() => {
-                            const cleaned = imageUploadService.cleanupOldImages(7);
-                            const info = imageUploadService.getStorageInfo();
-                            setStorageInfo(info);
-                            if (cleaned > 0) {
-                                setError(null);
-                            }
-                        }}
-                        style={{
-                            fontSize: '0.7rem',
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            borderWidth: '1px'
-                        }}
-                        title="Limpar imagens antigas"
-                    >
-                        <span className="material-icons" style={{fontSize: '12px'}}>cleaning_services</span>
-                    </Button>
-                )}
-
-                {/* Botão de limpeza de emergência */}
-                {storageInfo && storageInfo.usagePercent > 90 && (
-                    <Button
-                        variant="outline-danger"
-                        size="sm"
-                        onClick={() => {
-                            if (window.confirm('Limpar TODAS as imagens? Isso liberará espaço mas removerá todas as imagens armazenadas.')) {
-                                const cleaned = imageUploadService.emergencyCleanup();
-                                const info = imageUploadService.getStorageInfo();
-                                setStorageInfo(info);
-                                setError(null);
-                            }
-                        }}
-                        style={{
-                            fontSize: '0.7rem',
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            borderWidth: '1px'
-                        }}
-                        title="Limpeza de emergência - Remove TODAS as imagens"
-                    >
-                        <span className="material-icons" style={{fontSize: '12px'}}>warning</span>
-                    </Button>
-                )}
-            </div>
+                    <Delete fontSize="small" />
+                </IconButton>
+            )}
         </div>
     );
 };

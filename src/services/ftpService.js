@@ -1,58 +1,56 @@
-class ImageUploadService {
+class FTPService {
     constructor() {
-        // Usando um serviço de hospedagem de imagens gratuito como alternativa
-        // Você pode substituir por seu próprio endpoint backend
-        this.baseUrl = 'https://api.imgbb.com/1/upload';
-        this.apiKey = 'YOUR_IMGBB_API_KEY'; // Substitua pela sua chave da API
+        // Configurações do FTP - você pode ajustar conforme necessário
+        this.config = {
+            host: 'localhost', // Substitua pelo seu servidor FTP
+            port: 21,
+            user: 'ftpuser', // Substitua pelo seu usuário FTP
+            password: 'ftppassword', // Substitua pela sua senha FTP
+            secure: false, // true para FTPS
+            basePath: '/images/' // Caminho base para armazenar imagens
+        };
     }
 
-    async uploadImage(file, fileName) {
+    // Método para simular upload FTP (substitua por implementação real)
+    async uploadImage(imageBlob, fileName) {
         try {
-            // Converter arquivo para base64
-            const base64 = await this.fileToBase64(file);
+            console.log(`Simulando upload FTP para: ${fileName}`);
             
-            // Criar FormData para upload
-            const formData = new FormData();
-            formData.append('image', base64);
-            formData.append('name', fileName);
-            formData.append('key', this.apiKey);
-
-            // Fazer upload para o serviço
-            const response = await fetch(this.baseUrl, {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!response.ok) {
-                throw new Error('Erro no upload da imagem');
-            }
-
-            const data = await response.json();
+            // Simular delay de upload
+            await new Promise(resolve => setTimeout(resolve, 1000));
             
-            if (data.success) {
-                return data.data.url;
-            } else {
-                throw new Error(data.error?.message || 'Erro no upload');
-            }
+            // Gerar URL simulada do FTP
+            const ftpUrl = `ftp://${this.config.host}${this.config.basePath}${fileName}`;
+            
+            // Para demonstração, vamos usar localStorage como fallback
+            const base64 = await this.blobToBase64(imageBlob);
+            const imageData = {
+                fileName,
+                data: base64,
+                uploadedAt: new Date().toISOString(),
+                ftpUrl: ftpUrl,
+                fileSize: imageBlob.size,
+                fileType: imageBlob.type
+            };
+            
+            // Armazenar no localStorage como fallback
+            localStorage.setItem(`ftp_image_${fileName}`, JSON.stringify(imageData));
+            
+            console.log(`Imagem ${fileName} simulada como enviada para FTP`);
+            return ftpUrl;
+            
         } catch (error) {
-            console.error('Erro no upload:', error);
+            console.error('Erro no upload FTP:', error);
             throw error;
         }
     }
 
-    async deleteImage(imageUrl) {
-        // Para serviços como ImgBB, não há API de delete pública
-        // As imagens são mantidas no serviço
-        console.log('Imagem mantida no serviço:', imageUrl);
-        return true;
-    }
-
-    fileToBase64(file) {
+    // Método para converter blob para base64
+    blobToBase64(blob) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
-            reader.readAsDataURL(file);
+            reader.readAsDataURL(blob);
             reader.onload = () => {
-                // Remover o prefixo "data:image/...;base64,"
                 const base64 = reader.result.split(',')[1];
                 resolve(base64);
             };
@@ -60,42 +58,93 @@ class ImageUploadService {
         });
     }
 
-    generateFileName(originalName, quoteId) {
-        const timestamp = Date.now();
-        const extension = originalName.split('.').pop();
-        return `quote_${quoteId}_${timestamp}.${extension}`;
+    // Método para gerar nome de arquivo baseado na REF
+    generateImageFileName(ref) {
+        // Limpar REF de caracteres especiais
+        const cleanRef = ref.replace(/[^a-zA-Z0-9]/g, '_');
+        return `${cleanRef}.jpg`;
     }
 
-    // Método alternativo usando localStorage para demonstração
-    async uploadImageToLocalStorage(file, fileName) {
+    // Método para verificar se uma imagem já existe no FTP
+    async checkImageExists(fileName) {
         try {
-            const base64 = await this.fileToBase64(file);
-            const imageData = {
-                fileName,
-                data: base64,
-                uploadedAt: new Date().toISOString()
-            };
-            
-            // Armazenar no localStorage
-            localStorage.setItem(`image_${fileName}`, JSON.stringify(imageData));
-            
-            // Retornar URL de dados
-            return `data:image/${file.type.split('/')[1]};base64,${base64}`;
+            // Simular verificação
+            const storageKey = `ftp_image_${fileName}`;
+            const exists = localStorage.getItem(storageKey) !== null;
+            return exists;
         } catch (error) {
-            console.error('Erro no upload local:', error);
+            console.error('Erro ao verificar existência da imagem:', error);
+            return false;
+        }
+    }
+
+    // Método para obter URL da imagem
+    getImageUrl(fileName) {
+        const storageKey = `ftp_image_${fileName}`;
+        const imageData = localStorage.getItem(storageKey);
+        
+        if (imageData) {
+            const parsed = JSON.parse(imageData);
+            return `data:${parsed.fileType};base64,${parsed.data}`;
+        }
+        
+        return null;
+    }
+
+    // Método para listar todas as imagens FTP
+    listFTPImages() {
+        const images = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('ftp_image_')) {
+                try {
+                    const imageData = JSON.parse(localStorage.getItem(key));
+                    images.push({
+                        fileName: imageData.fileName,
+                        ftpUrl: imageData.ftpUrl,
+                        uploadedAt: imageData.uploadedAt,
+                        fileSize: imageData.fileSize,
+                        fileType: imageData.fileType
+                    });
+                } catch (e) {
+                    console.warn(`Erro ao processar imagem FTP ${key}:`, e);
+                }
+            }
+        }
+        return images;
+    }
+
+    // Método para deletar imagem do FTP
+    async deleteImage(fileName) {
+        try {
+            const storageKey = `ftp_image_${fileName}`;
+            localStorage.removeItem(storageKey);
+            console.log(`Imagem ${fileName} removida do FTP simulado`);
+            return true;
+        } catch (error) {
+            console.error('Erro ao remover imagem FTP:', error);
             throw error;
         }
     }
 
-    async deleteImageFromLocalStorage(fileName) {
+    // Método para configurar credenciais FTP
+    setConfig(newConfig) {
+        this.config = { ...this.config, ...newConfig };
+    }
+
+    // Método para testar conexão FTP
+    async testConnection() {
         try {
-            localStorage.removeItem(`image_${fileName}`);
+            console.log('Testando conexão FTP...');
+            // Simular teste de conexão
+            await new Promise(resolve => setTimeout(resolve, 500));
+            console.log('Conexão FTP simulada com sucesso');
             return true;
         } catch (error) {
-            console.error('Erro ao remover imagem local:', error);
-            throw error;
+            console.error('Erro na conexão FTP:', error);
+            return false;
         }
     }
 }
 
-export default new ImageUploadService();
+export default new FTPService();

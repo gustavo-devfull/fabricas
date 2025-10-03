@@ -10,6 +10,7 @@ const QuotesSection = ({
     selectedFactoryForQuotes,
     factoryName,
     quotes,
+    allQuotes,
     quoteImports,
     editingImport,
     editingQuotes,
@@ -27,7 +28,12 @@ const QuotesSection = ({
     onBulkAction,
     onImageUpdate,
     onRefresh,
-    loading = false
+    selectedForOrder = [],
+    onToggleOrderSelect = null,
+    selectedImportId = null,
+    loading = false,
+    onImportImages = null,
+    onUpdateImport = null
 }) => {
     if (!show) return null;
 
@@ -53,7 +59,12 @@ const QuotesSection = ({
                             <p className="text-muted">Esta fábrica ainda não possui cotações importadas</p>
                             <Button 
                                 variant="success" 
-                                onClick={() => window.location.href = '/admin/import'}
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    console.log('Redirecionando para página de importação');
+                                    window.location.href = '/admin/import';
+                                }}
                             >
                                 <span className="material-icons me-1" style={{fontSize: '18px'}}>upload</span>
                                 Importar Cotações
@@ -64,9 +75,11 @@ const QuotesSection = ({
                             {/* Histórico de Importações */}
                             <ImportHistory
                                 imports={quoteImports}
-                                quotes={quotes}
+                                quotes={allQuotes}
                                 onViewImport={onViewImport}
                                 onEditImport={onEditImport}
+                                selectedForOrder={selectedForOrder}
+                                selectedImportId={selectedImportId}
                             />
 
                             {/* Modal de Edição de Importação */}
@@ -100,6 +113,10 @@ const QuotesSection = ({
                                     onBulkAction={onBulkAction}
                                     onImageUpdate={onImageUpdate}
                                     onRefresh={onRefresh}
+                                    selectedForOrder={selectedForOrder}
+                                    onToggleOrderSelect={onToggleOrderSelect}
+                                    onImportImages={onImportImages}
+                                    onUpdateImport={onUpdateImport}
                                 />
                             )}
                         </div>

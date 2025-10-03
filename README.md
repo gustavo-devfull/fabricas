@@ -1,6 +1,6 @@
-# Sistema de Gestão de Fábricas
+# Ravi Import
 
-Sistema web para gestão de fábricas, cotações e produtos com upload de imagens.
+Sistema web para gestão de importações, cotações e produtos com upload de imagens.
 
 ## 🚀 Funcionalidades
 
@@ -34,13 +34,13 @@ Sistema web para gestão de fábricas, cotações e produtos com upload de image
 
 1. Clone o repositório:
 ```bash
-git clone https://github.com/seu-usuario/fabricas-system.git
-cd fabricas-system
+git clone https://github.com/seu-usuario/ravi-import.git
+cd ravi-import
 ```
 
 2. Instale as dependências:
 ```bash
-cd fabricas-system
+cd ravi-import
 npm install
 ```
 
@@ -107,7 +107,7 @@ VITE_FIREBASE_PROJECT_ID=seu-projeto-id
 ## 📄 Estrutura do Projeto
 
 ```
-fabricas-system/
+ravi-import/
 ├── src/
 │   ├── components/          # Componentes reutilizáveis
 │   │   ├── dashboard/       # Componentes do dashboard
@@ -139,8 +139,8 @@ Este projeto está sob a licença MIT. Veja o arquivo `LICENSE` para mais detalh
 
 Para suporte, entre em contato através de:
 - Email: seu-email@exemplo.com
-- GitHub Issues: [Abrir uma issue](https://github.com/seu-usuario/fabricas-system/issues)
+- GitHub Issues: [Abrir uma issue](https://github.com/seu-usuário/ravi-import/issues)
 
 ---
 
-Desenvolvido com ❤️ para gestão eficiente de fábricas e produtos.
+Desenvolvido com ❤️ para gestão eficiente de importações e produtos.

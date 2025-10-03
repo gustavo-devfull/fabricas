@@ -53,7 +53,10 @@ const Lightbox = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: '20px'
+                padding: '10px',
+                // Melhorar responsividade
+                minHeight: '100vh',
+                minWidth: '100vw'
             }}
             onClick={(e) => {
                 // Fechar ao clicar no overlay (fora da imagem)
@@ -68,22 +71,29 @@ const Lightbox = ({
                 size="lg"
                 className="position-absolute"
                 style={{
-                    top: '20px',
-                    right: '20px',
+                    top: '10px',
+                    right: '10px',
                     zIndex: 10000,
                     borderRadius: '50%',
-                    width: '50px',
-                    height: '50px',
+                    width: '45px',
+                    height: '45px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     backgroundColor: 'rgba(255, 255, 255, 0.2)',
                     border: 'none',
-                    backdropFilter: 'blur(10px)'
+                    backdropFilter: 'blur(10px)',
+                    // Responsivo para mobile
+                    '@media (max-width: 768px)': {
+                        width: '40px',
+                        height: '40px',
+                        top: '5px',
+                        right: '5px'
+                    }
                 }}
                 onClick={onClose}
             >
-                <span className="material-icons" style={{fontSize: '24px', color: 'white'}}>
+                <span className="material-icons" style={{fontSize: '22px', color: 'white'}}>
                     close
                 </span>
             </Button>
@@ -95,13 +105,13 @@ const Lightbox = ({
                     size="lg"
                     className="position-absolute"
                     style={{
-                        left: '20px',
+                        left: '10px',
                         top: '50%',
                         transform: 'translateY(-50%)',
                         zIndex: 10000,
                         borderRadius: '50%',
-                        width: '60px',
-                        height: '60px',
+                        width: '55px',
+                        height: '55px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -111,7 +121,7 @@ const Lightbox = ({
                     }}
                     onClick={onPrevious}
                 >
-                    <span className="material-icons" style={{fontSize: '28px', color: 'white'}}>
+                    <span className="material-icons" style={{fontSize: '26px', color: 'white'}}>
                         chevron_left
                     </span>
                 </Button>
@@ -124,13 +134,13 @@ const Lightbox = ({
                     size="lg"
                     className="position-absolute"
                     style={{
-                        right: '20px',
+                        right: '10px',
                         top: '50%',
                         transform: 'translateY(-50%)',
                         zIndex: 10000,
                         borderRadius: '50%',
-                        width: '60px',
-                        height: '60px',
+                        width: '55px',
+                        height: '55px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -140,7 +150,7 @@ const Lightbox = ({
                     }}
                     onClick={onNext}
                 >
-                    <span className="material-icons" style={{fontSize: '28px', color: 'white'}}>
+                    <span className="material-icons" style={{fontSize: '26px', color: 'white'}}>
                         chevron_right
                     </span>
                 </Button>
@@ -149,11 +159,14 @@ const Lightbox = ({
             {/* Imagem */}
             <div 
                 style={{
-                    maxWidth: '90%',
-                    maxHeight: '90%',
+                    maxWidth: '95vw',
+                    maxHeight: '95vh',
+                    width: '100%',
+                    height: '100%',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    padding: '20px'
                 }}
                 onClick={(e) => e.stopPropagation()}
             >
@@ -163,9 +176,14 @@ const Lightbox = ({
                     style={{
                         maxWidth: '100%',
                         maxHeight: '100%',
+                        width: 'auto',
+                        height: 'auto',
                         objectFit: 'contain',
                         borderRadius: '8px',
-                        boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)'
+                        boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
+                        // Garantir que a imagem seja responsiva
+                        minWidth: '200px',
+                        minHeight: '200px'
                     }}
                 />
             </div>
@@ -175,16 +193,17 @@ const Lightbox = ({
                 <div
                     className="position-absolute"
                     style={{
-                        bottom: '20px',
+                        bottom: '15px',
                         left: '50%',
                         transform: 'translateX(-50%)',
                         zIndex: 10000,
                         backgroundColor: 'rgba(0, 0, 0, 0.7)',
                         color: 'white',
-                        padding: '8px 16px',
-                        borderRadius: '20px',
-                        fontSize: '14px',
-                        backdropFilter: 'blur(10px)'
+                        padding: '6px 12px',
+                        borderRadius: '15px',
+                        fontSize: '13px',
+                        backdropFilter: 'blur(10px)',
+                        fontWeight: '500'
                     }}
                 >
                     {currentIndex + 1} / {totalImages}
@@ -195,13 +214,15 @@ const Lightbox = ({
             <div
                 className="position-absolute"
                 style={{
-                    bottom: '60px',
+                    bottom: '50px',
                     left: '50%',
                     transform: 'translateX(-50%)',
                     zIndex: 10000,
                     color: 'rgba(255, 255, 255, 0.7)',
-                    fontSize: '12px',
-                    textAlign: 'center'
+                    fontSize: '11px',
+                    textAlign: 'center',
+                    maxWidth: '300px',
+                    padding: '0 20px'
                 }}
             >
                 Use as setas do teclado ou clique nos botões para navegar
