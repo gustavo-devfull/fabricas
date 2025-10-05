@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Container, Row, Col, Card, Button } from 'react-bootstrap';
 import { Box, TextField, MenuItem, Chip, Typography, Button as MuiButton } from '@mui/material';
 import { FilterList, Clear } from '@mui/icons-material';
+import { useSearchParams } from 'react-router-dom';
 import { 
     getAllFactories, 
     addFactory, 
@@ -9,18 +10,23 @@ import {
     deleteFactory,
     getQuotesByFactory,
     deleteQuote,
+    addQuote,
     getQuoteImportsByFactory,
-    updateQuotesFromImport
+    updateQuotesFromImport,
+    addMultipleQuotes
 } from '../../firebase/firestoreService';
-import { updateDoc, doc } from 'firebase/firestore';
+import { updateDoc, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
+import { formatCurrency, formatDate, formatDateTime } from '../../utils/formatters';
 import Alert from '../../components/Alert';
 import FactoryForm from '../../components/dashboard/FactoryForm';
 import FactoryCard from '../../components/dashboard/FactoryCard';
 import QuotesSection from '../../components/dashboard/QuotesSection';
 import ImageImportModal from '../../components/dashboard/ImageImportModal';
+import excelExportService from '../../services/excelExportService';
 
 const AdminDashboard = () => {
+    const [searchParams] = useSearchParams();
     const [factories, setFactories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showAddForm, setShowAddForm] = useState(false);
@@ -50,6 +56,10 @@ const AdminDashboard = () => {
     
     // Estados para importação de imagens
     const [showImageImportModal, setShowImageImportModal] = useState(false);
+    
+    // Estados para controlar exibição de cotações exportadas
+    const [showExportedQuotes, setShowExportedQuotes] = useState(false);
+    const [exportedQuotesVisible, setExportedQuotesVisible] = useState(false);
     
     // Estados para filtros
     const [filterCity, setFilterCity] = useState('');
@@ -116,7 +126,32 @@ const AdminDashboard = () => {
 
     useEffect(() => {
         loadFactories();
-    }, [loadFactories]);
+        
+        // Verificar se há uma fábrica pré-selecionada na URL
+        const factoryId = searchParams.get('factory');
+        if (factoryId) {
+            console.log('🏭 Fábrica detectada na URL:', factoryId);
+            // Aguardar um pouco para garantir que as fábricas foram carregadas
+            setTimeout(() => {
+                loadQuotes(factoryId);
+            }, 500);
+        }
+    }, [loadFactories, searchParams]);
+
+    // Função para alternar a exibição de cotações exportadas
+    const toggleExportedQuotes = () => {
+        setShowExportedQuotes(!showExportedQuotes);
+        setExportedQuotesVisible(!exportedQuotesVisible);
+    };
+
+    // Recarregar cotações quando o toggle de cotações exportadas mudar
+    useEffect(() => {
+        if (selectedFactoryForQuotes && allQuotes.length > 0) {
+            // Recarregar apenas os dados filtrados, não fazer nova busca
+            const filteredQuotes = showExportedQuotes ? allQuotes : allQuotes.filter(quote => !quote.exported);
+            setQuotes(filteredQuotes);
+        }
+    }, [showExportedQuotes, allQuotes]);
 
     const handleAddFactory = async (e) => {
         e.preventDefault();
@@ -145,6 +180,21 @@ const AdminDashboard = () => {
         setEditingFactory(factory);
         setFactoryForm(factory);
         setShowAddForm(true);
+        
+        // Scroll automático para o formulário de edição após um pequeno delay
+        setTimeout(() => {
+            const factoryFormCard = document.getElementById('factory-form-card');
+            if (factoryFormCard) {
+                console.log('✅ Scroll automático para formulário de edição de fábrica');
+                factoryFormCard.scrollIntoView({ 
+                    behavior: 'smooth',
+                    block: 'start',
+                    inline: 'nearest'
+                });
+            } else {
+                console.log('❌ Formulário de fábrica não encontrado para scroll');
+            }
+        }, 100); // Pequeno delay para garantir que o componente foi renderizado
     };
 
     const handleUpdateFactory = async (e) => {
@@ -201,12 +251,27 @@ const AdminDashboard = () => {
 
     const loadQuotes = async (factoryId) => {
         try {
-            console.log('📥 Carregando cotações para factoryId:', factoryId);
-            const quotesData = await getQuotesByFactory(factoryId);
-            const importsData = await getQuoteImportsByFactory(factoryId);
+            console.log('📥 Carregando cotações para factoryId:', factoryId, typeof factoryId);
             
-            console.log('📊 Cotações carregadas:', quotesData);
-            console.log('📊 Importações carregadas:', importsData);
+            // Validar se o factoryId é válido
+            if (!factoryId) {
+                throw new Error('Factory ID é obrigatório');
+            }
+            
+            // Verificar se o Firebase está conectado
+            if (!db) {
+                throw new Error('Firebase não está inicializado');
+            }
+            
+            console.log('🔄 Iniciando busca Firebase para factoryId:', factoryId);
+            const quotesData = await getQuotesByFactory(factoryId);
+            console.log('✅ Cotações Firebase carregadas:', quotesData?.length || 0, 'itens');
+            
+            const importsData = await getQuoteImportsByFactory(factoryId);
+            console.log('✅ Importações Firebase carregadas:', importsData?.length || 0, 'items');
+            
+            console.log('📊 Dados brutos das cotações:', quotesData);
+            console.log('📊 Dados das importações:', importsData);
             
             // Verificar quais cotações já estão selecionadas para pedido
             const selectedQuotesForOrder = quotesData
@@ -232,7 +297,10 @@ const AdminDashboard = () => {
             console.log('🎯 Cotações carregadas:', quotesData.length);
             console.log('✅ Cotações já selecionadas para pedido:', selectedQuotesForOrder);
             
-            setQuotes(quotesData);
+            // Filtrar cotações exportadas se necessário
+            const filteredQuotes = showExportedQuotes ? quotesData : quotesData.filter(quote => !quote.exported);
+            
+            setQuotes(filteredQuotes);
             setAllQuotes(quotesData); // Armazenar todas as cotações
             setQuoteImports(importsData);
             setSelectedFactoryForQuotes(factoryId);
@@ -247,9 +315,56 @@ const AdminDashboard = () => {
             setEditingQuotes([]);
             
             console.log('🎉 Estados atualizados com sucesso');
+            
+            // Scroll automático para a seção de cotações após um pequeno delay
+            setTimeout(() => {
+                // Tentar encontrar o título "Cotações" na página
+                const quotesHeader = document.querySelector('h5');
+                if (quotesHeader && quotesHeader.textContent.includes('Cotações')) {
+                    quotesHeader.scrollIntoView({ 
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                } else {
+                    // Fallback: procurar por um elemento que contenha "Cotações"
+                    const quotesElements = document.querySelectorAll('*');
+                    for (let element of quotesElements) {
+                        if (element.textContent && element.textContent.includes('Cotações') && element.tagName === 'H5') {
+                            element.scrollIntoView({ 
+                                behavior: 'smooth',
+                                block: 'start'
+                            });
+                            break;
+                        }
+                    }
+                }
+            }, 150);
         } catch (err) {
-            console.error('❌ Erro ao carregar cotações:', err);
-            showAlert('error', 'Erro!', 'Erro ao carregar cotações');
+            console.error('❌ Erro detalhado ao carregar cotações:', {
+                factoryId: factoryId,
+                error: err,
+                message: err.message,
+                stack: err.stack,
+                name: err.name
+            });
+            
+            // Exibir erro mais específico
+            let errorMessage = 'Erro ao carregar cotações';
+            if (err.message) {
+                errorMessage = `Erro: ${err.message}`;
+            } else if (err.code) {
+                errorMessage = `Erro Firebase ${err.code}: ${err.message}`;
+            }
+            
+            showAlert('error', 'Erro ao carregar cotações', errorMessage);
+            
+            // Resetar estados em caso de erro
+            setQuotes([]);
+            setAllQuotes([]);
+            setQuoteImports([]);
+            setSelectedFactoryForQuotes('');
+            setShowQuotes(false);
+            setSelectedForOrder([]);
         }
     };
 
@@ -263,6 +378,41 @@ const AdminDashboard = () => {
                 console.error('Erro ao excluir cotação:', err);
                 showAlert('error', 'Erro!', 'Erro ao excluir cotação');
             }
+        }
+    };
+
+    const handleDuplicateQuote = async (quoteToDuplicate) => {
+        try {
+            console.log('🔄 Duplicando cotação:', quoteToDuplicate.ref || quoteToDuplicate.description);
+            
+            // Criar cópia da cotação removendo campos únicos
+            const duplicateQuoteData = {
+                ...quoteToDuplicate,
+                ref: (quoteToDuplicate.ref || '') + ' - CÓPIA',
+                description: (quoteToDuplicate.description || '') + ' (Cópia)',
+                selectedForOrder: false, // Nova cotação não deve estar selecionada
+                orderStatus: 'pending', // Status padrão
+                orderDate: null, // Sem data de pedido
+                createdAt: new Date(), // Nova data de criação
+                updatedAt: new Date()
+            };
+            
+            // Remover campos que não devem ser duplicados
+            delete duplicateQuoteData.id;
+            
+            console.log('📋 Dados da cotação duplicada:', duplicateQuoteData);
+            
+            // Adicionar nova cotação ao Firebase
+            const quoteId = await addQuote(duplicateQuoteData);
+            console.log('✅ Nova cotação criada com ID:', quoteId);
+            
+            // Recarregar cotações para mostrar a nova
+            loadQuotes(selectedFactoryForQuotes);
+            
+            showAlert('success', 'Sucesso!', 'Cotação duplicada com sucesso!');
+        } catch (error) {
+            console.error('❌ Erro ao duplicar cotação:', error);
+            showAlert('error', 'Erro!', 'Erro ao duplicar cotação: ' + error.message);
         }
     };
 
@@ -372,6 +522,183 @@ const AdminDashboard = () => {
         setAlert({ show: false, variant: 'info', message: '', title: '' });
     };
 
+    // Função para exportar cotações selecionadas
+    const handleExportQuotes = async (selectedIds) => {
+        try {
+            console.log('🚀 Iniciando exportação de cotações:', selectedIds);
+            
+            // Filtrar cotações selecionadas
+            const selectedQuotesData = allQuotes.filter(quote => selectedIds.includes(quote.id));
+            
+            if (selectedQuotesData.length === 0) {
+                showAlert('warning', 'Exportação', 'Nenhuma cotação selecionada para exportar.');
+                return;
+            }
+            
+            console.log('📊 Cotações selecionadas para exportação:', selectedQuotesData.length);
+            
+            // Encontrar informações da fábrica atual
+            const currentFactory = factories.find(f => f.id === selectedFactoryForQuotes);
+            if (!currentFactory) {
+                showAlert('error', 'Erro!', 'Fábrica não encontrada para exportação.');
+                return;
+            }
+            
+            // Preparar dados para exportação seguindo o formato esperado pelo serviço
+            const factoryExportData = {
+                factory: currentFactory,
+                imports: [{
+                    id: selectedImportId || 'Exportacao_' + Date.now(),
+                    importName: selectedImportId ? `Importação ${selectedImportId}` : 'Exportação',
+                    datetime: new Date(),
+                    selectedProducts: selectedQuotesData.map(quote => ({
+                        ...quote,
+                        selectedForOrder: selectedForOrder.includes(quote.id)
+                    }))
+                }]
+            };
+            
+            console.log('📝 Dados preparados para exportação:', {
+                factory: factoryExportData.factory.name || factoryExportData.factory.nomeFabrica,
+                productsCount: factoryExportData.imports[0].selectedProducts.length
+            });
+            
+            // Gerar nome do arquivo baseado na fábrica e data
+            const factoryName = (currentFactory.name || currentFactory.nomeFabrica).replace(/[^a-zA-Z0-9]/g, '_');
+            const fileName = `${factoryName}_cotações_exportadas_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.xlsx`;
+            
+            // Executar exportação usando o serviço existente
+            const result = await excelExportService.exportFactoryProducts(factoryExportData, fileName);
+            
+            console.log('✅ Exportação concluída:', result);
+            
+            // Marcar cotações como exportadas
+            console.log('🔄 Iniciando marcação de cotações como exportadas...');
+            await markQuotesAsExported(selectedIds);
+            console.log('✅ Marcação de exportação concluída');
+            
+            showAlert('success', 'Exportação Concluída!', 
+                `${result.count} cotações exportadas com sucesso para o arquivo: ${result.fileName}. As cotações foram marcadas como exportadas.`);
+            
+        } catch (error) {
+            console.error('❌ Erro na exportação:', error);
+            showAlert('error', 'Erro na Exportação!', `Erro ao exportar cotações: ${error.message}`);
+        }
+    };
+
+    // Função para marcar cotações como exportadas
+
+
+    const markQuotesAsExported = async (quoteIds) => {
+        try {
+            console.log('🏷️ Marcando cotações como exportadas:', quoteIds);
+            
+            if (!quoteIds || quoteIds.length === 0) {
+                console.log('⚠️ Nenhuma cotação para marcar como exportada');
+                return;
+            }
+            
+            const updatePromises = quoteIds.map(async (quoteId) => {
+                try {
+                    console.log(`🔄 Atualizando cotação ${quoteId}...`);
+                    const quoteRef = doc(db, 'quotes', quoteId);
+                    
+                    // Buscar dados atuais da cotação DIRETAMENTE do Firebase para preservar campos importantes
+                    const quoteSnapshot = await getDoc(quoteRef);
+                    const currentQuoteData = quoteSnapshot.exists() ? quoteSnapshot.data() : null;
+                    
+                    console.log(`📊 Dados atuais da cotação ${quoteId} no Firebase:`, {
+                        dataPedido: currentQuoteData?.dataPedido,
+                        lotePedido: currentQuoteData?.lotePedido,
+                        ref: currentQuoteData?.ref
+                    });
+                    
+                    const updateData = {
+                        exported: true,
+                        exportedAt: new Date(),
+                        orderStatus: 'exported',
+                        selectedForOrder: false, // Remove da seleção atual
+                        updatedAt: new Date(),
+                        // Preservar campos importantes do Firebase
+                        dataPedido: currentQuoteData?.dataPedido || '',
+                        lotePedido: currentQuoteData?.lotePedido || ''
+                    };
+                    
+                    console.log(`📝 Dados para atualização:`, updateData);
+                    await updateDoc(quoteRef, updateData);
+                    console.log(`✅ Cotação ${quoteId} marcada como exportada (DATA PEDIDO: ${currentQuoteData?.dataPedido}, LOTE PEDIDO: ${currentQuoteData?.lotePedido})`);
+                } catch (updateError) {
+                    console.error(`❌ Erro ao atualizar cotação ${quoteId}:`, updateError);
+                    throw updateError;
+                }
+            });
+
+            console.log(`🔄 Aguardando atualização de ${updatePromises.length} cotações...`);
+            await Promise.all(updatePromises);
+            
+            // Remover das seleções atuais
+            console.log('🔄 Removendo das seleções atuais...');
+            setSelectedForOrder(prev => prev.filter(id => !quoteIds.includes(id)));
+            setSelectedQuotes(prev => prev.filter(id => !quoteIds.includes(id)));
+            
+            // Recarregar cotações para mostrar as mudanças
+            console.log('🔄 Recarregando lista de cotações...');
+            await loadQuotes(selectedFactoryForQuotes);
+            
+            console.log(`✅ ${updatePromises.length} cotações marcadas como exportadas com sucesso`);
+        } catch (error) {
+            console.error('❌ Erro ao marcar cotações como exportadas:', error);
+            throw error;
+        }
+    };
+
+    // Função para duplicar cotações selecionadas
+    const handleDuplicateQuotes = async (selectedIds) => {
+        try {
+            console.log('🚀 Iniciando duplicação de cotações:', selectedIds);
+            
+            // Filtrar cotações selecionadas
+            const selectedQuotesData = allQuotes.filter(quote => selectedIds.includes(quote.id));
+            
+            if (selectedQuotesData.length === 0) {
+                showAlert('warning', 'Duplicação', 'Nenhuma cotação selecionada para duplicar.');
+                return;
+            }
+            
+            console.log('📊 Cotações selecionadas para duplicação:', selectedQuotesData.length);
+            
+            // Preparar dados para duplicação (remover ID e resetar campos específicos)
+            const quotesToDuplicate = selectedQuotesData.map(quote => {
+                const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, selectedForOrder: _selectedForOrder, orderStatus: _orderStatus, orderDate: _orderDate, ...quoteData } = quote;
+                
+                return {
+                    ...quoteData,
+                    factoryId: selectedFactoryForQuotes,
+                    selectedForOrder: false,
+                    orderStatus: 'pending',
+                    orderDate: null,
+                    // Adicionar sufixo na referência para identificar como duplicata
+                    ref: `${quoteData.ref}_COPY_${Date.now()}`,
+                    remark: `DUPLICATA - ${quoteData.remark || ''}`,
+                    import: `Duplicação de ${quoteData.import || ''}`
+                };
+            });
+            
+            console.log('📝 Dados preparados para duplicação:', quotesToDuplicate.length, 'cotações');
+            
+            // Salvar cotações duplicadas usando o serviço do Firebase
+            const duplicateIds = await addMultipleQuotes(quotesToDuplicate);
+            
+            console.log('✅ Duplicação concluída:', duplicateIds.length, 'novas cotações criadas');
+            showAlert('success', 'Duplicação Concluída!', 
+                `${duplicateIds.length} cotações duplicadas com sucesso!`);
+            
+        } catch (error) {
+            console.error('❌ Erro na duplicação:', error);
+            showAlert('error', 'Erro na Duplicação!', `Erro ao duplicar cotações: ${error.message}`);
+        }
+    };
+
     const handleBulkAction = async (action, selectedIds) => {
         try {
             setLoading(true);
@@ -386,11 +713,12 @@ const AdminDashboard = () => {
                 }
                     
                 case 'export':
-                    showAlert('info', 'Exportação', 'Funcionalidade de exportação será implementada em breve.');
+                    await handleExportQuotes(selectedIds);
                     break;
                     
                 case 'duplicate':
-                    showAlert('info', 'Duplicação', 'Funcionalidade de duplicação será implementada em breve.');
+                    await handleDuplicateQuotes(selectedIds);
+                    await loadQuotes(selectedFactoryForQuotes);
                     break;
                     
                 default:
@@ -454,9 +782,6 @@ const AdminDashboard = () => {
         }
     };
 
-    const handleImport = (factoryId) => {
-        window.location.href = `/admin/import?factory=${factoryId}`;
-    };
 
     const handleImageUpdate = (quoteId, imageUrl) => {
         // Atualizar a cotação na lista local
@@ -655,34 +980,72 @@ const AdminDashboard = () => {
             <FactoryForm
                 show={showAddForm}
                 editingFactory={editingFactory}
-                factoryForm={factoryForm}
+                factoryForm={ factoryForm}
                 setFactoryForm={setFactoryForm}
                 onSubmit={editingFactory ? handleUpdateFactory : handleAddFactory}
                 onCancel={handleCancel}
+                onDelete={handleDeleteFactory}
                 loading={loading}
             />
 
             {/* Cards das Fábricas */}
             <div className="mb-4">
+                {/* Título - sempre visível */}
                 <div className="d-flex justify-content-between align-items-center mb-3">
-                    <div className="d-flex align-items-center gap-3">
-                        <h2 className="mb-0">
-                            <span className="material-icons me-2" style={{fontSize: '28px', verticalAlign: 'middle'}}>factory</span>
-                            Fábricas Cadastradas
-                        </h2>
-                        
-                        {/* Filtros */}
-                        {factories.length > 0 && (
-                            <Box sx={{ 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                gap: 1, 
-                                flexWrap: 'wrap',
-                                backgroundColor: '#f8f9fa', 
-                                padding: '8px 12px',
-                                borderRadius: 2,
-                                border: '1px solid #e9ecef'
-                            }}>
+                    <h2 className="mb-0">
+                        <span className="material-icons me-2" style={{fontSize: '28px', verticalAlign: 'middle'}}>factory</span>
+                        Fábricas Cadastradas
+                    </h2>
+                    
+                    {/* Botões de Ação - apenas quando não mobile */}
+                    <div className="d-none d-md-flex gap-2">
+                        <Button 
+                            variant="success" 
+                            onClick={() => setShowAddForm(true)}
+                            size="sm"
+                        >
+                            <span className="material-icons me-1" style={{fontSize: '16px'}}>add</span>
+                            Adicionar Nova Fábrica
+                        </Button>
+                        <Button 
+                            variant="warning" 
+                            onClick={() => {
+                                const selectedFactoryId = selectedFactoryForQuotes;
+                                if (selectedFactoryId) {
+                                    window.location.href = `/admin/import?factory=${selectedFactoryId}`;
+                                } else {
+                                    showAlert('warning', 'Aviso', 'Selecione uma fábrica primeiro clicando em "Cotações"');
+                                }
+                            }}
+                            size="sm"
+                        >
+                            <span className="material-icons me-1" style={{fontSize: '16px'}}>upload</span>
+                            Importar
+                        </Button>
+                        <Button 
+                            variant="outline-primary" 
+                            onClick={loadFactories}
+                            size="sm"
+                        >
+                            <span className="material-icons me-1" style={{fontSize: '16px'}}>refresh</span>
+                            Atualizar Lista
+                        </Button>
+                    </div>
+                </div>
+                
+                {/* Filtros - abaixo do título */}
+                {factories.length > 0 && (
+                    <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 1, 
+                        flexWrap: 'wrap',
+                        backgroundColor: '#f8f9fa', 
+                        padding: '8px 12px',
+                        borderRadius: 2,
+                        border: '1px solid #e9ecef',
+                        marginBottom: '16px'
+                    }}>
                                 <FilterList sx={{ color: 'primary.main', fontSize: '18px' }} />
                                 
                                 {/* Filtro por Cidade */}
@@ -749,26 +1112,44 @@ const AdminDashboard = () => {
                                     sx={{ fontSize: '0.7rem' }}
                                 />
                             </Box>
-                        )}
-                    </div>
-                    
-                    {/* Botões de Ação */}
-                    <div className="d-flex gap-2">
+                )}
+                
+                {/* Botões de Ação Mobile - linha própria em mobile */}
+                <div className="d-md-none mb-3">
+                    <div className="d-flex gap-2 flex-wrap">
                         <Button 
                             variant="success" 
                             onClick={() => setShowAddForm(true)}
                             size="sm"
+                            className="flex-fill"
                         >
                             <span className="material-icons me-1" style={{fontSize: '16px'}}>add</span>
-                            Adicionar Nova Fábrica
+                            Adicionar
                         </Button>
                         <Button 
-                            variant="outline-primary" 
+                            variant="warning" 
+                            onClick={() => {
+                                const selectedFactoryId = selectedFactoryForQuotes;
+                                if (selectedFactoryId) {
+                                    window.location.href = `/admin/import?factory=${selectedFactoryId}`;
+                                } else {
+                                    showAlert('warning', 'Aviso', 'Selecione uma fábrica primeiro clicando em "Cotações"');
+                                }
+                            }}
+                            size="sm"
+                            className="flex-fill"
+                        >
+                            <span className="material-icons me-1" style={{fontSize: '16px'}}>upload</span>
+                            Importar
+                        </Button>
+                        <Button 
+             variant="outline-primary" 
                             onClick={loadFactories}
                             size="sm"
+                            className="flex-fill"
                         >
                             <span className="material-icons me-1" style={{fontSize: '16px'}}>refresh</span>
-                            Atualizar Lista
+                            Atualizar
                         </Button>
                     </div>
                 </div>
@@ -795,8 +1176,6 @@ const AdminDashboard = () => {
                                     factory={factory}
                                     onEdit={handleEditFactory}
                                     onViewQuotes={loadQuotes}
-                                    onImport={handleImport}
-                                    onDelete={handleDeleteFactory}
                                     isSelected={selectedFactoryForQuotes === factory.id}
                                 />
                             </Col>
@@ -805,11 +1184,12 @@ const AdminDashboard = () => {
                 )}
             </div>
 
+
             {/* Seção de Cotações */}
             <QuotesSection
                 show={showQuotes}
                 selectedFactoryForQuotes={selectedFactoryForQuotes}
-                factoryName={factories.find(f => f.id === selectedFactoryForQuotes)?.nomeFabrica}
+                factoryName={factories.find(f => f.id === selectedFactoryForQuotes)?.name || factories.find(f => f.id === selectedFactoryForQuotes)?.nomeFabrica}
                 quotes={quotes}
                 allQuotes={allQuotes}
                 quoteImports={quoteImports}
@@ -824,6 +1204,7 @@ const AdminDashboard = () => {
                 onSaveImport={handleSaveImport}
                 onCancelEdit={handleCancelEdit}
                 onDeleteQuote={handleDeleteQuote}
+                onDuplicateQuote={handleDuplicateQuote}
                 onToggleMultiSelect={() => setShowMultiSelect(!showMultiSelect)}
                 onSelectionChange={setSelectedQuotes}
                 onBulkAction={handleBulkAction}

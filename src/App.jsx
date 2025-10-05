@@ -11,7 +11,10 @@ import ImportData from './pages/admin/ImportData';
 import UserManagement from './pages/admin/UserManagement';
 import SelectedProducts from './pages/admin/SelectedProducts';
 import CreateQuote from './pages/admin/CreateQuote';
+import UserProfile from './pages/admin/UserProfile';
+import ExportedOrders from './pages/admin/ExportedOrders';
 import Debug from './pages/Debug';
+import FactoryDebug from './pages/FactoryDebug';
 
 function App() {
   return (
@@ -23,6 +26,9 @@ function App() {
         {/* Rota Pública: Debug */}
         <Route path="/debug" element={<Debug />} />
         
+        {/* Rota Pública: Factory Debug */}
+        <Route path="/factory-debug" element={<FactoryDebug />} />
+        
         {/* Agrupamento de Rotas Protegidas com o Layout */}
         <Route element={<PrivateRoute><AdminLayout /></PrivateRoute>}>
             {/* Rota Raiz: Redireciona para o Dashboard */}
@@ -33,8 +39,10 @@ function App() {
             <Route path="/admin/setup" element={<FactorySetup />} />
             <Route path="/admin/import" element={<ImportData />} />
             <Route path="/admin/users" element={<UserManagement />} />
+            <Route path="/admin/profile" element={<UserProfile />} />
             <Route path="/admin/selected-products" element={<SelectedProducts />} />
             <Route path="/admin/create-quote" element={<CreateQuote />} />
+            <Route path="/admin/exported-orders" element={<ExportedOrders />} />
         </Route>
         
         {/* Rota para página não encontrada (404) */}

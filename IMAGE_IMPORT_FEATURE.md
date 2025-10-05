@@ -212,3 +212,4 @@ Para problemas ou dúvidas sobre esta funcionalidade, consulte:
 - Arquivo de configuração do FTP
 - Documentação da biblioteca `xlsx`
 
+

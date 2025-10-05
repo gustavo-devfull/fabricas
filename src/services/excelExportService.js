@@ -1,44 +1,14 @@
 import * as XLSX from 'xlsx';
-import ExcelJS from 'exceljs';
+import { formatDate, formatDateTime } from '../utils/formatters';
 
 class ExcelExportService {
     constructor() {
         this.defaultFileName = 'produtos_selecionados';
     }
 
-    // Função auxiliar para formatar datas
-    formatDate(date) {
-        if (!date) return '';
-        
-        try {
-            // Se é um objeto Firestore Timestamp
-            if (date.toDate && typeof date.toDate === 'function') {
-                return date.toDate().toLocaleDateString('pt-BR');
-            }
-            // Se é um objeto Date
-            else if (date instanceof Date) {
-                return date.toLocaleDateString('pt-BR');
-            }
-            // Se é uma string de data
-            else if (typeof date === 'string') {
-                const dateObj = new Date(date);
-                if (!isNaN(dateObj.getTime())) {
-                    return dateObj.toLocaleDateString('pt-BR');
-                }
-            }
-            // Se é um timestamp numérico
-            else if (typeof date === 'number') {
-                const dateObj = new Date(date);
-                if (!isNaN(dateObj.getTime())) {
-                    return dateObj.toLocaleDateString('pt-BR');
-                }
-            }
-            
-            return '';
-        } catch (error) {
-            console.warn('Erro ao formatar data:', error);
-            return '';
-        }
+    // Função auxiliar para formatar datas (usando utilitário centralizado)
+    formatDateForExcel(date) {
+        return formatDate(date);
     }
 
     // Função para gerar uma nova imagem JPG com informações do produto e fazer upload para FTP
@@ -106,7 +76,7 @@ class ExcelExportService {
             ctx.fillStyle = '#7f8c8d';
             ctx.font = '10px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, width / 2, height - 10);
+            ctx.fillText(`Gerado em: ${formatDate(new Date())}`, width / 2, height - 10);
             
             // Converter para blob
             return new Promise((resolve) => {
@@ -259,6 +229,9 @@ class ExcelExportService {
         try {
             console.log('Iniciando exportação de produtos selecionados com imagens VISÍVEIS...');
             
+            // Importar ExcelJS dinamicamente
+            const ExcelJS = (await import('exceljs')).default;
+            
             // Criar workbook com ExcelJS para inserir imagens nas células
             const workbook = new ExcelJS.Workbook();
             const worksheet = workbook.addWorksheet('Produtos Selecionados');
@@ -330,9 +303,9 @@ class ExcelExportService {
                             product.pesoUnitario || 0,
                             factory.factory.nomeFabrica || '',
                             importData.importName || `Importação #${importData.id}`,
-                            this.formatDate(importData.datetime),
+                            formatDate(importData.datetime),
                             product.orderStatus || '',
-                            this.formatDate(product.orderDate)
+                            formatDate(product.orderDate)
                         ]);
                         
                         // Configurar altura da linha para acomodar imagem
@@ -396,7 +369,7 @@ class ExcelExportService {
             }
             
             // Gerar nome do arquivo
-            const finalFileName = fileName || `produtos_selecionados_com_imagens_visiveis_${new Date().toISOString().split('T')[0]}.xlsx`;
+            const finalFileName = fileName || `produtos_selecionados_com_imagens_visiveis_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.xlsx`;
             
             // Baixar arquivo
             const buffer = await workbook.xlsx.writeBuffer();
@@ -491,9 +464,9 @@ class ExcelExportService {
                             'PESO UNITÁRIO(g)': product.pesoUnitario || 0,
                             'FÁBRICA': factory.factory.nomeFabrica || '',
                             'IMPORTAÇÃO': importData.importName || `Importação #${importData.id}`,
-                            'DATA IMPORTAÇÃO': this.formatDate(importData.datetime),
+                            'DATA IMPORTAÇÃO': formatDate(importData.datetime),
                             'STATUS PEDIDO': product.selectedForOrder ? 'SELECIONADO' : 'PENDENTE',
-                            'DATA SELEÇÃO': this.formatDate(product.orderDate)
+                            'DATA SELEÇÃO': formatDate(product.orderDate)
                         };
                         
                         exportData.push(rowData);
@@ -551,7 +524,7 @@ class ExcelExportService {
             XLSX.utils.book_append_sheet(workbook, worksheet, 'Produtos Selecionados');
             
             // Gerar nome do arquivo
-            const finalFileName = fileName || `${this.defaultFileName}_${new Date().toISOString().split('T')[0]}.xlsx`;
+            const finalFileName = fileName || `${this.defaultFileName}_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.xlsx`;
             
             // Baixar arquivo
             XLSX.writeFile(workbook, finalFileName);
@@ -636,9 +609,9 @@ class ExcelExportService {
                         'T.N.W': product.totalNetWeight || 0,
                         'PESO UNITÁRIO(g)': product.pesoUnitario || 0,
                         'IMPORTAÇÃO': importData.importName || `Importação #${importData.id}`,
-                        'DATA IMPORTAÇÃO': importData.datetime ? importData.datetime.toLocaleDateString('pt-BR') : '',
+                        'DATA IMPORTAÇÃO': formatDate(importData.datetime),
                         'STATUS PEDIDO': product.selectedForOrder ? 'SELECIONADO' : 'PENDENTE',
-                        'DATA SELEÇÃO': product.orderDate ? new Date(product.orderDate).toLocaleDateString('pt-BR') : ''
+                        'DATA SELEÇÃO': formatDate(product.orderDate)
                     };
                     
                     exportData.push(rowData);
@@ -695,7 +668,7 @@ class ExcelExportService {
             
             // Gerar nome do arquivo
             const factoryName = factoryData.factory.nomeFabrica.replace(/[^a-zA-Z0-9]/g, '_');
-            const finalFileName = fileName || `${factoryName}_produtos_selecionados_${new Date().toISOString().split('T')[0]}.xlsx`;
+            const finalFileName = fileName || `${factoryName}_produtos_selecionados_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.xlsx`;
             
             // Baixar arquivo
             XLSX.writeFile(workbook, finalFileName);
@@ -756,9 +729,9 @@ class ExcelExportService {
                             'PESO UNITÁRIO(g)': product.pesoUnitario || 0,
                             'FÁBRICA': factory.factory.nomeFabrica || '',
                             'IMPORTAÇÃO': importData.importName || `Importação #${importData.id}`,
-                            'DATA IMPORTAÇÃO': this.formatDate(importData.datetime),
+                            'DATA IMPORTAÇÃO': formatDate(importData.datetime),
                             'STATUS PEDIDO': product.selectedForOrder ? 'SELECIONADO' : 'PENDENTE',
-                            'DATA SELEÇÃO': this.formatDate(product.orderDate)
+                            'DATA SELEÇÃO': formatDate(product.orderDate)
                         };
                         
                         exportData.push(rowData);
@@ -816,7 +789,7 @@ class ExcelExportService {
             XLSX.utils.book_append_sheet(workbook, worksheet, 'Produtos Selecionados');
             
             // Gerar nome do arquivo
-            const finalFileName = fileName || `${this.defaultFileName}_urls_${new Date().toISOString().split('T')[0]}.xlsx`;
+            const finalFileName = fileName || `${this.defaultFileName}_urls_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.xlsx`;
             
             // Baixar arquivo
             XLSX.writeFile(workbook, finalFileName);

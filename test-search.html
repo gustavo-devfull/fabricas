@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Busca de Produtos</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        input {
+            width: 200px;
+            padding: 8px;
+            margin: 5px;
+        }
+        button {
+            padding: 8px 15px;
+            margin: 5px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .result {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 3px;
+            white-space: pre-wrap;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Teste de Busca de Produtos</h1>
+    
+    <div class="test-section">
+        <h3>Teste 1: Mock Local</h3>
+        <input type="text" id="mockRef" placeholder="Digite uma REF (ex: MR1165)" value="MR1165">
+        <button onclick="testMock()">Testar Mock</button>
+        <div id="mockResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Teste 2: Firebase</h3>
+        <input type="text" id="firebaseRef" placeholder="Digite uma REF" value="MR1149">
+        <button onclick="testFirebase()">Testar Firebase</button>
+        <div id="firebaseResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Teste 3: Conexão Firebase</h3>
+        <button onclick="testConnection()">Testar Conexão</button>
+        <div id="connectionResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Teste 4: Busca Completa</h3>
+        <input type="text" id="fullRef" placeholder="Digite uma REF" value="MR1223">
+        <button onclick="testFullSearch()">Busca Completa</button>
+        <div id="fullResult" class="result"></div>
+    </div>
+
+    <script type="module">
+        // Simular os dados mock
+        const mockProducts = {
+            'MR1165': {
+                referencia: 'MR1165',
+                ncm: '12345678',
+                description: 'Produto MR1165 - Descrição do produto',
+                name: 'Produto MR1165',
+                unit: 'PCS',
+                unitPriceRmb: 15.50,
+                unitCtn: 20,
+                l: 10.0,
+                w: 8.0,
+                h: 3.0,
+                cbm: 0.024,
+                gw: 0.5,
+                nw: 0.4,
+                pesoUnitario: 0.4,
+                moq: 100,
+                moqLogo: 500,
+                marca: 'Marca Teste',
+                codigoRavi: 'RAV1165',
+                ean: '1234567890123',
+                dun: 'DUN1165',
+                nomeInvoiceEN: 'MR1165 Product',
+                nomeDI: 'Produto MR1165 DI',
+                nomeRavi: 'Produto MR1165 Ravi',
+                quantidadeMinimaVenda: 50,
+                cest: '1234567',
+                valorInvoiceUSD: 15.50,
+                observacaoPedido: 'Observação do pedido MR1165',
+                remark: 'Observação geral MR1165',
+                obs: 'Observação específica MR1165',
+                import: 'IMP1165',
+                category: 'Categoria A',
+                origin: 'China',
+                comments: 'Comentários do produto MR1165'
+            },
+            'MR1223': {
+                referencia: 'MR1223',
+                ncm: 70134290,
+                description: '',
+                name: '',
+                unit: '',
+                unitPriceRmb: 13,
+                unitCtn: 24,
+                l: '',
+                w: '',
+                h: '',
+                cbm: 0.065,
+                gw: '',
+                nw: '',
+                pesoUnitario: 0.82,
+                moq: '',
+                moqLogo: '',
+                marca: 'MORI',
+                codRavi: 60284,
+                ean: 7898258622425,
+                dun: 17898258622422,
+                nomeInvoiceEn: 'HOUSEHOLD GLASS CONTAINER 990ML MR1223',
+                nomeDiNb: 'POTE DE VIDRO PARA USO DOMÉSTICO 990ML MR1223',
+                nomeRaviProfit: 'POTE HERMÉTICO DE VIDRO RETANGULAR 990ML MR1223',
+                quantidadeMinimaVenda: 1,
+                cest: '14.003.00',
+                valorInvoiceUsd: 0.7056,
+                observacaoPedido: '',
+                remark: '',
+                obs: '',
+                import: '',
+                category: '',
+                origin: '',
+                comments: '',
+                foto: 'https://nyc3.digitaloceanspaces.com/moribr/base-fotos/MR1223.jpg'
+            }
+        };
+
+        // Função para testar mock local
+        window.testMock = function() {
+            const ref = document.getElementById('mockRef').value.trim().toUpperCase();
+            const resultDiv = document.getElementById('mockResult');
+            
+            console.log(`🔍 [TESTE] Testando mock para REF: "${ref}"`);
+            console.log(`🔍 [TESTE] Chaves disponíveis:`, Object.keys(mockProducts));
+            console.log(`🔍 [TESTE] Mock tem "${ref}"?`, mockProducts.hasOwnProperty(ref));
+            
+            if (mockProducts[ref]) {
+                resultDiv.className = 'result success';
+                resultDiv.textContent = `✅ Produto ${ref} encontrado!\n\nDados:\n${JSON.stringify(mockProducts[ref], null, 2)}`;
+                console.log(`✅ [TESTE] Produto ${ref} encontrado no mock`);
+            } else {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Produto ${ref} não encontrado no mock.\n\nProdutos disponíveis: ${Object.keys(mockProducts).join(', ')}`;
+                console.log(`❌ [TESTE] Produto ${ref} não encontrado no mock`);
+            }
+        };
+
+        // Função para testar Firebase (simulada)
+        window.testFirebase = async function() {
+            const ref = document.getElementById('firebaseRef').value.trim().toUpperCase();
+            const resultDiv = document.getElementById('firebaseResult');
+            
+            resultDiv.className = 'result';
+            resultDiv.textContent = '🔄 Testando conexão Firebase...';
+            
+            try {
+                // Simular chamada Firebase
+                console.log(`🔥 [TESTE] Simulando busca Firebase para: "${ref}"`);
+                
+                // Simular delay
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Simular resultado
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `⚠️ Firebase não disponível no teste HTML.\n\nPara testar Firebase, use o sistema principal.\n\nREF testada: "${ref}"`;
+                
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Erro no teste Firebase: ${error.message}`;
+            }
+        };
+
+        // Função para testar conexão
+        window.testConnection = async function() {
+            const resultDiv = document.getElementById('connectionResult');
+            
+            resultDiv.className = 'result';
+            resultDiv.textContent = '🔄 Testando conexão...';
+            
+            try {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                resultDiv.className = 'result error';
+                resultDiv.textContent = '⚠️ Teste de conexão não disponível no HTML.\n\nUse o sistema principal para testar Firebase.';
+                
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Erro: ${error.message}`;
+            }
+        };
+
+        // Função para teste completo
+        window.testFullSearch = function() {
+            const ref = document.getElementById('fullRef').value.trim().toUpperCase();
+            const resultDiv = document.getElementById('fullResult');
+            
+            console.log(`🔍 [TESTE COMPLETO] Buscando: "${ref}"`);
+            
+            // Testar mock primeiro
+            if (mockProducts[ref]) {
+                resultDiv.className = 'result success';
+                resultDiv.textContent = `✅ Produto ${ref} encontrado no MOCK!\n\nDados:\n${JSON.stringify(mockProducts[ref], null, 2)}`;
+            } else {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Produto ${ref} não encontrado.\n\nProdutos disponíveis no mock: ${Object.keys(mockProducts).join(', ')}\n\nPara testar Firebase, use o sistema principal.`;
+            }
+        };
+
+        // Teste automático ao carregar
+        console.log('🚀 Página de teste carregada');
+        console.log('📦 Mock products:', Object.keys(mockProducts));
+    </script>
+</body>
+</html>

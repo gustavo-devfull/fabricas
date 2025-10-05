@@ -1,7 +1,8 @@
 import React from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Navbar, Nav, Container, Button } from 'react-bootstrap';
+import { Navbar, Nav, Container, Button, Dropdown } from 'react-bootstrap';
+import { Person, Logout } from '@mui/icons-material';
 import logoRavi from '../assets/RAVI-LOGO-COLOR.svg';
 
 // Componente do Logo RAVI
@@ -20,7 +21,7 @@ const LogoComponent = () => {
 };
 
 const AdminLayout = () => {
-    const { logout } = useAuth();
+    const { logout, currentUser } = useAuth();
 
     const handleLogout = async () => {
         try {
@@ -32,10 +33,11 @@ const AdminLayout = () => {
 
     const navItems = [
         { to: '/admin/dashboard', label: 'Dashboard' },
-        { to: '/admin/setup', label: 'Cadastro Fábrica' },
+        { to: '/admin/setup', label: '' },
         { to: '/admin/create-quote', label: 'Criar Cotação' },
         { to: '/admin/import', label: 'Importar Dados' },
         { to: '/admin/selected-products', label: 'Produtos Selecionados' },
+        { to: '/admin/exported-orders', label: 'Pedidos Exportados' },
         { to: '/admin/users', label: 'Gerenciar Usuários' },
     ];
 
@@ -62,10 +64,25 @@ const AdminLayout = () => {
                                 </Nav.Link>
                             ))}
                         </Nav>
-                        <Button variant="danger" onClick={handleLogout}>
-                            <span className="material-icons me-1" style={{fontSize: '18px'}}>logout</span>
-                            Sair
-                        </Button>
+                        <Nav>
+                            <Dropdown align="end">
+                                <Dropdown.Toggle variant="outline-light" id="user-dropdown">
+                                    <Person className="me-2" />
+                                    {currentUser?.displayName || currentUser?.email || 'Usuário'}
+                                </Dropdown.Toggle>
+                                <Dropdown.Menu>
+                                    <Dropdown.Item as={NavLink} to="/admin/profile">
+                                        <Person className="me-2" />
+                                        Meu Perfil
+                                    </Dropdown.Item>
+                                    <Dropdown.Divider />
+                                    <Dropdown.Item onClick={handleLogout} className="text-danger">
+                                        <Logout className="me-2" />
+                                        Sair
+                                    </Dropdown.Item>
+                                </Dropdown.Menu>
+                            </Dropdown>
+                        </Nav>
                     </Navbar.Collapse>
                 </Container>
             </Navbar>

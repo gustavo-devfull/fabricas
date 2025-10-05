@@ -4,6 +4,7 @@ import ImageUpload from './ImageUpload';
 import Lightbox from '../Lightbox';
 import { updateDoc, doc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
+import { formatCurrency, formatDate, formatDateTime } from '../../utils/formatters';
 
 const QuoteCard = ({ 
     quote, 
@@ -12,7 +13,8 @@ const QuoteCard = ({
     onImageUpdate = null,
     isSelectedForOrder = false,
     onToggleOrderSelect = null,
-    onImportImages = null
+    onImportImages = null,
+    onDuplicateQuote = null
 }) => {
     const [showLightbox, setShowLightbox] = useState(false);
     const [editableCtns, setEditableCtns] = useState(quote.ctns || 0);
@@ -40,7 +42,12 @@ const QuoteCard = ({
         cbm: quote.cbm || 0,
         grossWeight: quote.grossWeight || 0,
         netWeight: quote.netWeight || 0,
-        pesoUnitario: quote.pesoUnitario || 0
+        pesoUnitario: quote.pesoUnitario || 0,
+        moq: quote.moq || 0,
+        moqLogo: quote.moqLogo || '',
+        comentarios: quote.comentarios || '',
+        dataPedido: quote.dataPedido || '',
+        lotePedido: quote.lotePedido || ''
     });
 
     const handleImageClick = () => {
@@ -117,28 +124,48 @@ const QuoteCard = ({
         }
     };
 
+    // Função auxiliar para converter valores para número ou texto
+    const safeValue = (value, defaultValue = 0, isNumber = true) => {
+        if (value === null || value === undefined || value === '') {
+            return defaultValue;
+        }
+        
+        if (typeof value === 'object' && value !== null) {
+            // Se for um objeto Firebase, tentar extrair valor
+            const extractedValue = value.value || value.amount || value;
+            return isNumber ? (parseFloat(extractedValue) || defaultValue) : (extractedValue?.toString() || defaultValue);
+        }
+        
+        return isNumber ? (parseFloat(value) || defaultValue) : (value?.toString() || defaultValue);
+    };
+
     const handleCancelEdit = () => {
         setEditedFields({
-            ref: quote.ref || '',
-            ncm: quote.ncm || '',
-            description: quote.description || '',
-            name: quote.name || '',
-            englishDescription: quote.englishDescription || '',
-            import: quote.import || '',
-            remark: quote.remark || '',
-            obs: quote.obs || '',
-            unitCtn: quote.unitCtn || 0,
-            unit: quote.unit || '',
-            unitPrice: quote.unitPrice || 0,
-            length: quote.length || 0,
-            width: quote.width || 0,
-            height: quote.height || 0,
-            cbm: quote.cbm || 0,
-            grossWeight: quote.grossWeight || 0,
-            netWeight: quote.netWeight || 0,
-            pesoUnitario: quote.pesoUnitario || 0
+            ref: safeValue(quote.ref, '', false),
+            ncm: safeValue(quote.ncm, '', false),
+            description: safeValue(quote.description, '', false),
+            name: safeValue(quote.name, '', false),
+            englishDescription: safeValue(quote.englishDescription, '', false),
+            import: safeValue(quote.import, '', false),
+            remark: safeValue(quote.remark, '', false),
+            obs: safeValue(quote.obs, '', false),
+            unitCtn: safeValue(quote.unitCtn, 0, true),
+            unit: safeValue(quote.unit, '', false),
+            unitPrice: safeValue(quote.unitPrice, 0, true),
+            length: safeValue(quote.length, 0, true),
+            width: safeValue(quote.width, 0, true),
+            height: safeValue(quote.height, 0, true),
+            cbm: safeValue(quote.cbm, 0, true),
+            grossWeight: safeValue(quote.grossWeight, 0, true),
+            netWeight: safeValue(quote.netWeight, 0, true),
+            pesoUnitario: safeValue(quote.pesoUnitario, 0, true),
+            moq: safeValue(quote.moq, 0, true),
+            moqLogo: safeValue(quote.moqLogo, '', false),
+            comentarios: safeValue(quote.comentarios, '', false),
+            dataPedido: safeValue(quote.dataPedido, '', false),
+            lotePedido: safeValue(quote.lotePedido, '', false)
         });
-        setEditableCtns(quote.ctns || 0);
+        setEditableCtns(safeValue(quote.ctns, 0, true));
         setIsEditing(false);
     };
 
@@ -201,35 +228,179 @@ const QuoteCard = ({
     };
 
     const formatNumber = (value, decimals = 2) => {
-        return (value || 0).toFixed(decimals);
+        // Se valor é null, undefined ou vazio, retornar 0 formatado
+        if (value === null || value === undefined || value === '') {
+            return (0).toFixed(decimals);
+        }
+        
+        // Converter valor para número se não for já
+        let numValue = value;
+        if (typeof value === 'string') {
+            numValue = parseFloat(value) || 0;
+        } else if (typeof value === 'object' && value !== null) {
+            // Se for um objeto, tentar extrair um valor numérico
+            numValue = value.value || value.amount || value || 0;
+            if (typeof numValue !== 'number') {
+                numValue = parseFloat(numValue) || 0;
+            }
+        } else if (typeof value !== 'number') {
+            numValue = parseFloat(value) || 0;
+        }
+        
+        // Verificar se numValue é um número válido antes de chamar toFixed
+        if (isNaN(numValue) || !isFinite(numValue)) {
+            numValue = 0;
+        }
+        
+        return numValue.toFixed(decimals);
+    };
+
+    // Função para renderizar campo sempre editável
+    const renderAlwaysEditableField = (fieldName, label, type = 'text', options = {}) => {
+        return (
+            <Box sx={{ 
+                backgroundColor: '#f8f9fa',
+                padding: 0.5,
+                borderRadius: 1,
+                border: 'none',
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 0.5,
+                justifyContent: 'space-between',
+                minWidth: '120px',
+                maxWidth: '200px',
+                flex: '1 1 200px'
+            }}>
+                <Typography variant="body2" sx={{ fontSize: '14px', color: '#495057', fontWeight: '500', flexShrink: 0 }}>
+                    {label}:
+                </Typography>
+                <TextField
+                    value={editedFields[fieldName]}
+                    onChange={(e) => handleFieldChange(fieldName, e.target.value)}
+                    onKeyPress={(e) => {
+                        if (e.key === 'Enter' && !options.multiline) {
+                            e.preventDefault();
+                            handleSaveChanges();
+                        } else if (e.key === 'Enter' && options.multiline && e.ctrlKey) {
+                            e.preventDefault();
+                            handleSaveChanges();
+                        }
+                    }}
+                    onBlur={() => {
+                        // Salvar automaticamente quando sair do campo
+                        setTimeout(() => {
+                            const currentValue = editedFields[fieldName];
+                            const originalValue = quote[fieldName];
+                            
+                            // Comparar valores tratados (strings/números)
+                            const compareCurrent = typeof currentValue === 'number' ? currentValue : (currentValue || '').toString();
+                            const compareOriginal = typeof originalValue === 'number' ? originalValue : (originalValue || '').toString();
+                            
+                            if (compareCurrent !== compareOriginal && currentValue !== undefined) {
+                                console.log(`🔄 Salvando campo ${fieldName}: ${compareOriginal} → ${compareCurrent}`);
+                                handleSaveChanges();
+                            }
+                        }, 200);
+                    }}
+                    size="small"
+                    type={type}
+                    variant="outlined"
+                    multiline={options.multiline}
+                    rows={options.multiline ? 2 : undefined}
+                    sx={{
+                        width: options.multiline ? '120px' : '80px',
+                        '& .MuiInputBase-input': {
+                            textAlign: options.multiline ? 'left' : 'center',
+                            fontSize: '14px',
+                            padding: '4px 6px',
+                            color: '#495057'
+                        },
+                        '& .MuiOutlinedInput-notchedOutline': {
+                            border: 'none'
+                        },
+                        '& .MuiInputBase-root': {
+                            backgroundColor: '#ffffff',
+                            borderRadius: '4px'
+                        }
+                    }}
+                    inputProps={{
+                        min: options.min || 0,
+                        step: options.step || (type === 'number' ? 0.01 : undefined),
+                        max: options.max
+                    }}
+                />
+            </Box>
+        );
+    };
+
+
+    // Campos que NÃO devem ser editáveis (têm fórmulas matemáticas)
+    const calculatedFields = ['qty', 'amount', 'cbmTotal', 'totalGrossWeight', 'totalNetWeight'];
+
+    // Função para verificar se um campo é editável
+    const isFieldEditable = (fieldName) => {
+        // Em modo de edição, todos os campos são editáveis exceto os calculados
+        if (isEditing) {
+            return !calculatedFields.includes(fieldName);
+        }
+        // No estado normal, apenas CTNS é editável
+        return fieldName === 'ctns';
     };
 
     // Função para renderizar campo editável ou texto
     const renderEditableField = (fieldName, label, value, type = 'text', options = {}) => {
-        if (isEditing) {
+        if (isEditing && isFieldEditable(fieldName)) {
             return (
                 <Box sx={{ 
-                    backgroundColor: '#ffffff',
+                    backgroundColor: '#f8f9fa',
                     padding: 0.5,
                     borderRadius: 1,
-                    border: '1px solid #e9ecef',
-                    textAlign: 'center',
-                    minHeight: '60px'
+                    border: 'none',
+                    display: 'flex',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    justifyContent: 'space-between',
+                    minWidth: '120px',
+                    maxWidth: '200px',
+                    flex: '1 1 200px'
                 }}>
-                    <Typography variant="body2" sx={{ fontSize: '0.6rem', color: '#6c757d', fontWeight: 'bold', mb: 0.5 }}>
-                        {label}
+                    <Typography variant="body2" sx={{ fontSize: '14px', color: '#495057', fontWeight: options.bold ? 'bold' : '500', flexShrink: 0 }}>
+                        {label}:
                     </Typography>
                     <TextField
                         value={editedFields[fieldName]}
                         onChange={(e) => handleFieldChange(fieldName, e.target.value)}
+                        onKeyPress={(e) => {
+                            if (e.key === 'Enter' && !options.multiline) {
+                                e.preventDefault();
+                                handleSaveChanges();
+                            } else if (e.key === 'Enter' && options.multiline && e.ctrlKey) {
+                                // Ctrl+Enter para salvar em campos multi-line
+                                e.preventDefault();
+                                handleSaveChanges();
+                            }
+                        }}
                         size="small"
                         type={type}
+                        variant="outlined"
+                        multiline={options.multiline}
+                        rows={options.multiline ? 2 : undefined}
                         sx={{
-                            width: '100%',
+                            width: options.multiline ? '150px' : '80px',
                             '& .MuiInputBase-input': {
-                                textAlign: 'center',
-                                fontSize: '0.7rem',
-                                padding: '2px 4px'
+                                textAlign: options.multiline ? 'left' : 'center',
+                                fontSize: '14px',
+                                padding: '4px 6px',
+                                color: options.color || '#495057'
+                            },
+                            '& .MuiOutlinedInput-notchedOutline': {
+                                border: options.border || 'none'
+                            },
+                            '& .MuiInputBase-root': {
+                                backgroundColor: options.backgroundColor || '#ffffff',
+                                borderRadius: '4px'
                             }
                         }}
                         inputProps={{
@@ -243,22 +414,28 @@ const QuoteCard = ({
         }
 
         // Renderização quando não está editando (visualização)
-        const backgroundColor = options.backgroundColor || '#ffffff';
         return (
             <Box sx={{ 
-                backgroundColor: backgroundColor,
-                padding: 1,
+                backgroundColor: '#f8f9fa',
+                padding: 0.5,
                 borderRadius: 1,
-                border: '1px solid #e9ecef',
-                textAlign: 'center'
+                border: 'none',
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 0.5,
+                justifyContent: 'space-between',
+                minWidth: '120px',
+                maxWidth: '200px',
+                flex: '1 1 200px'
             }}>
-                <Typography variant="body2" sx={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold', mb: 0.5 }}>
-                    {label}
+                <Typography variant="body2" sx={{ fontSize: '14px', color: '#495057', fontWeight: options.bold ? 'bold' : '500', flexShrink: 0 }}>
+                    {label}:
                 </Typography>
-                <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 'bold', color: options.color || '#374151' }}>
+                <Typography variant="body2" sx={{ fontSize: '14px', fontWeight: options.bold ? 'bold' : '500', color: '#495057', textAlign: 'right', flex: 1 }}>
                     {type === 'currency' ? formatCurrency(value) : 
                      type === 'number' ? formatNumber(value, options.decimals || 2) :
-                     value?.toString().substring(0, (options.maxLength || 25)) + (value?.toString().length > (options.maxLength || 25) ? '...' : '')}
+                     value?.toString().substring(0, (options.maxLength || 15)) + (value?.toString().length > (options.maxLength || 15) ? '...' : '')}
                 </Typography>
             </Box>
         );
@@ -285,9 +462,16 @@ const QuoteCard = ({
                 {/* Layout principal: Header + Conteúdo */}
                 <div className="mb-1">
                     {/* Header com todos os elementos em uma linha */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+                    <Box sx={{ 
+                        display: 'flex', 
+                        gap: 1, 
+                        mb: 1, 
+                        flexWrap: 'wrap',
+                        flexDirection: { xs: 'column', sm: 'row' },
+                        alignItems: { xs: 'stretch', sm: 'center' }
+                    }}>
                         {/* REF */}
-                        <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'primary.main', fontSize: '1rem', minWidth: '80px' }}>
+                        <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'black', fontSize: '1rem', minWidth: '80px' }}>
                             REF: {quote.ref || 'N/A'}
                         </Typography>
 
@@ -306,7 +490,7 @@ const QuoteCard = ({
                                 sx={{
                                     '& .MuiFormControlLabel-label': {
                                         fontSize: '0.75rem',
-                                        color: '#6c757d'
+                                        color: 'black'
                                     }
                                 }}
                             />
@@ -329,7 +513,8 @@ const QuoteCard = ({
                                         fontWeight: 'bold',
                                         fontSize: '0.9rem',
                                         cursor: 'pointer',
-                                        '&:hover': { color: 'primary.main' }
+                                        color: 'black',
+                                        '&:hover': { color: '#007bff' }
                                     }}
                                     onClick={() => setIsEditing(true)}
                                 >
@@ -353,9 +538,9 @@ const QuoteCard = ({
                                     variant="body2" 
                                     sx={{ 
                                         fontSize: '0.8rem',
-                                        color: 'text.secondary',
+                                        color: 'black',
                                         cursor: 'pointer',
-                                        '&:hover': { color: 'primary.main' }
+                                        '&:hover': { color: '#007bff' }
                                     }}
                                     onClick={() => setIsEditing(true)}
                                 >
@@ -364,82 +549,135 @@ const QuoteCard = ({
                             )}
                         </Box>
 
-                        {/* Botões Salvar/Cancelar quando editando */}
-                        {isEditing && (
-                            <>
-                                <Button
-                                    size="small"
-                                    onClick={handleSaveChanges}
-                                    variant="contained"
-                                    color="success"
-                                    disabled={isSaving}
-                                    sx={{ fontSize: '0.6rem', padding: '2px 8px' }}
-                                >
-                                    {isSaving ? 'Salvando...' : 'Salvar Alterações'}
-                                </Button>
-                                <Button
-                                    size="small"
-                                    onClick={handleCancelEdit}
-                                    variant="contained"
-                                    color="warning"
-                                    disabled={isSaving}
-                                    sx={{ fontSize: '0.6rem', padding: '2px 8px' }}
-                                >
-                                    Cancelar
-                                </Button>
-                            </>
-                        )}
+                        {/* Botões de ação - organizados para mobile */}
+                        <Box sx={{ 
+                            display: 'flex', 
+                            gap: 1, 
+                            flexWrap: 'wrap',
+                            flexDirection: { xs: 'column', sm: 'row' },
+                            width: { xs: '100%', sm: 'auto' },
+                            mt: { xs: 1, sm: 0 }
+                        }}>
+                            {/* Botões Salvar/Cancelar quando editando */}
+                            {isEditing && (
+                                <>
+                                    <Button
+                                        size="small"
+                                        onClick={handleSaveChanges}
+                                        variant="contained"
+                                        color="success"
+                                        disabled={isSaving}
+                                        sx={{ 
+                                            fontSize: '0.6rem', 
+                                            padding: '2px 8px',
+                                            width: { xs: '100%', sm: 'auto' }
+                                        }}
+                                    >
+                                        {isSaving ? 'Salvando...' : 'Salvar Alterações'}
+                                    </Button>
+                                    <Button
+                                        size="small"
+                                        onClick={handleCancelEdit}
+                                        variant="contained"
+                                        color="warning"
+                                        disabled={isSaving}
+                                        sx={{ 
+                                            fontSize: '0.6rem', 
+                                            padding: '2px 8px',
+                                            width: { xs: '100%', sm: 'auto' }
+                                        }}
+                                    >
+                                        Cancelar
+                                    </Button>
+                                </>
+                            )}
 
-                        {/* Botão Editar quando não editando */}
-                        {!isEditing && (
+                            {/* Botão Editar quando não editando */}
+                            {!isEditing && (
+                                <>
+                                    <Button
+                                        size="small"
+                                        onClick={() => setIsEditing(true)}
+                                        variant="contained"
+                                        color="primary"
+                                        sx={{ 
+                                            fontSize: '0.6rem', 
+                                            padding: '2px 8px',
+                                            width: { xs: '100%', sm: 'auto' }
+                                        }}
+                                    >
+                                        Editar Produto
+                                    </Button>
+                                    
+                                    {/* Botão Duplicar */}
+                                    {onDuplicateQuote && (
+                                        <Button
+                                            size="small"
+                                            onClick={() => onDuplicateQuote(quote)}
+                                            variant="contained"
+                                            color="secondary"
+                                            sx={{ 
+                                                fontSize: '0.6rem', 
+                                                padding: '2px 8px',
+                                                width: { xs: '100%', sm: 'auto' }
+                                            }}
+                                        >
+                                            Duplicar Cotação
+                                        </Button>
+                                    )}
+                                </>
+                            )}
+
+                            {/* Botão Excluir */}
                             <Button
                                 size="small"
-                                onClick={() => setIsEditing(true)}
+                                onClick={() => onDeleteQuote(quote.id)}
                                 variant="contained"
-                                color="primary"
-                                sx={{ fontSize: '0.6rem', padding: '2px 8px' }}
-                            >
-                                Editar Produto
-                            </Button>
-                        )}
-
-                        {/* Botão Excluir */}
-                        <Button
-                            size="small"
-                            onClick={() => onDeleteQuote(quote.id)}
-                            variant="contained"
-                            color="error"
-                            sx={{ fontSize: '0.6rem', padding: '2px 8px' }}
-                        >
-                            Excluir
-                        </Button>
-
-                        {/* Botão Importar Imagens */}
-                        {onImportImages && (
-                            <Button
-                                size="small"
-                                onClick={() => {
-                                    console.log('Botão de importação clicado para REF:', quote.ref);
-                                    onImportImages();
+                                color="error"
+                                sx={{ 
+                                    fontSize: '0.6rem', 
+                                    padding: '2px 8px',
+                                    width: { xs: '100%', sm: 'auto' }
                                 }}
-                                variant="contained"
-                                color="info"
-                                sx={{ fontSize: '0.6rem', padding: '2px 8px' }}
                             >
-                                Importar
+                                Excluir
                             </Button>
-                        )}
+
+                            {/* Botão Importar Imagens */}
+                            {onImportImages && (
+                                <Button
+                                    size="small"
+                                    onClick={() => {
+                                        console.log('Botão de importação clicado para REF:', quote.ref);
+                                        onImportImages();
+                                    }}
+                                    variant="contained"
+                                    color="info"
+                                    sx={{ 
+                                        fontSize: '0.6rem', 
+                                        padding: '2px 8px',
+                                        width: { xs: '100%', sm: 'auto' }
+                                    }}
+                                >
+                                    Importar
+                                </Button>
+                            )}
+                        </Box>
                     </Box>
 
                     {/* Layout horizontal: Imagem à esquerda, informações à direita */}
-                    <div className="d-flex gap-2">
+                    <div className="d-flex gap-2 flex-column flex-md-row">
                         {/* Imagem do produto */}
-                        <div className="flex-shrink-0" style={{ width: '200px', height: '200px' }}>
+                        <div className="flex-shrink-0 mx-auto mx-md-0" style={{ 
+                            width: '200px', 
+                            height: '200px',
+                            maxWidth: '100%'
+                        }}>
                             {quote.imageUrl ? (
                                 <div 
                                     style={{
-                                        width: '200px',
-                                        height: '200px',
+                                        width: '100%',
+                                        height: '100%',
                                         borderRadius: '8px',
                                         border: '2px solid #e9ecef',
                                         overflow: 'hidden',
@@ -476,7 +714,7 @@ const QuoteCard = ({
                                         onError={(e) => {
                                             e.target.style.display = 'none';
                                             e.target.parentElement.innerHTML = `
-                                                <div style="color: #6c757d; text-align: center; font-size: 0.7rem;">
+                                                <div style="color: black; text-align: center; font-size: 0.7rem;">
                                                     Sem imagem
                                                 </div>
                                             `;
@@ -494,7 +732,7 @@ const QuoteCard = ({
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        color: '#6c757d'
+                                        color: 'black'
                                     }}
                                 >
                                     <div style={{ textAlign: 'center' }}>
@@ -515,108 +753,129 @@ const QuoteCard = ({
                         {/* Informações do produto */}
                         <div className="flex-grow-1">
                             <Box sx={{ 
-                                backgroundColor: '#f8f9fa', 
+                                backgroundColor: '#ffffff', 
                                 padding: 0.5, 
                                 borderRadius: 1,
-                                border: '1px solid #e9ecef'
+                                border: 'none'
                             }}>
-                                {/* Campos individuais em Grid */}
+                                {/* Campos individuais em Linha Horizontal */}
                                 <Box sx={{ 
-                                    display: 'grid',
-                                    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                                    display: 'flex',
+                                    flexDirection: 'row',
+                                    flexWrap: 'wrap',
                                     gap: 1,
-                                    padding: 0.5
+                                    padding: 0.5,
+                                    alignItems: 'center'
                                 }}>
                                     {/* REF */}
                                     {renderEditableField('ref', 'REF', isEditing ? editedFields.ref : quote.ref, 'text', { 
                                         backgroundColor: '#ffffff',
-                                        color: 'primary.main'
+                                        color: 'primary.main',
+                                        bold: true
                                     })}
 
                                     {/* NCM */}
                                     {renderEditableField('ncm', 'NCM', isEditing ? editedFields.ncm : quote.ncm, 'text', { 
-                                        backgroundColor: '#f0f9ff',
-                                        border: '1px solid #0284c7'
+                                        backgroundColor: '#f8f9fa',
+                                        border: 'none'
                                     })}
 
                                     {/* DESCRIPTION */}
                                     {renderEditableField('description', 'DESCRIPTION', isEditing ? editedFields.description : quote.description, 'text', { 
-                                        backgroundColor: '#f8f9ff',
-                                        border: '1px solid #d1d5db',
-                                        maxLength: 50
+                                        backgroundColor: '#f8f9fa',
+                                        border: 'none',
+                                        maxLength: 50,
+                                        bold: true
                                     })}
 
                                     {/* NAME */}
                                     {renderEditableField('name', 'NAME', isEditing ? editedFields.name : quote.name, 'text', { 
-                                        backgroundColor: '#fff7f8',
-                                        border: '1px solid #fdbdbd',
+                                        backgroundColor: '#f8f9fa',
+                                        border: 'none',
                                         maxLength: 30
                                     })}
 
                                     {/* ENGLISH DESCRIPTION */}
                                     {renderEditableField('englishDescription', 'ENGLISH', isEditing ? editedFields.englishDescription : quote.englishDescription, 'text', { 
-                                        backgroundColor: '#f0fdf4',
-                                        border: '1px solid #a7f3d0',
+                                        backgroundColor: '#f8f9fa',
+                                        border: 'none',
                                         maxLength: 30
                                     })}
 
                                     {/* IMPORT */}
                                     {renderEditableField('import', 'IMPORT', isEditing ? editedFields.import : quote.import, 'text', { 
-                                        backgroundColor: '#fefce8',
-                                        border: '1px solid #facc15'
+                                        backgroundColor: '#f8f9fa',
+                                        border: 'none'
                                     })}
 
                                     {/* REMARK */}
                                     <Box sx={{ 
-                                        backgroundColor: '#eff6ff',
-                                        padding: 1,
+                                        backgroundColor: '#f8f9fa',
+                                        padding: 0.5,
                                         borderRadius: 1,
-                                        border: '1px solid #93c5fd',
-                                        textAlign: 'center',
-                                        fontSize: '0.7rem'
+                                        border: 'none',
+                                        display: 'flex',
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: 0.5,
+                                        justifyContent: 'space-between',
+                                        minWidth: '120px',
+                                        maxWidth: '200px',
+                                        flex: '1 1 200px'
                                     }}>
-                                        <Typography variant="body2" sx={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold', mb: 0.5 }}>
-                                            REMARK
+                                        <Typography variant="body2" sx={{ fontSize: '14px', color: '#495057', fontWeight: '500', flexShrink: 0 }}>
+                                            REMARK:
                                         </Typography>
-                                        <Typography variant="body2" sx={{ fontSize: '0.7rem', fontWeight: 'bold', color: '#374151', lineHeight: 1.2 }}>
-                                            {(quote.remark || 'N/A').substring(0, 25) + ((quote.remark || 'N/A').length > 25 ? '...' : '')}
+                                        <Typography variant="body2" sx={{ fontSize: '14px', fontWeight: '500', color: '#495057', textAlign: 'right', flex: 1 }}>
+                                            {(quote.remark || 'N/A').substring(0, 15) + ((quote.remark || 'N/A').length > 15 ? '...' : '')}
                                         </Typography>
                                     </Box>
 
                                     {/* OBS */}
                                     <Box sx={{ 
-                                        backgroundColor: '#fdf2f8',
-                                        padding: 1,
+                                        backgroundColor: '#f8f9fa',
+                                        padding: 0.5,
                                         borderRadius: 1,
-                                        border: '1px solid #f9a8d4',
-                                        textAlign: 'center',
-                                        fontSize: '0.7rem'
+                                        border: 'none',
+                                        display: 'flex',
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: 0.5,
+                                        justifyContent: 'space-between',
+                                        minWidth: '120px',
+                                        maxWidth: '200px',
+                                        flex: '1 1 200px'
                                     }}>
-                                        <Typography variant="body2" sx={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold', mb: 0.5 }}>
-                                            OBS
+                                        <Typography variant="body2" sx={{ fontSize: '14px', color: '#495057', fontWeight: '500', flexShrink: 0 }}>
+                                            OBS:
                                         </Typography>
-                                        <Typography variant="body2" sx={{ fontSize: '0.7rem', fontWeight: 'bold', color: '#374151', lineHeight: 1.2 }}>
-                                            {(quote.obs || 'N/A').substring(0, 25) + ((quote.obs || 'N/A').length > 25 ? '...' : '')}
+                                        <Typography variant="body2" sx={{ fontSize: '14px', fontWeight: '500', color: '#495057', textAlign: 'right', flex: 1 }}>
+                                            {(quote.obs || 'N/A').substring(0, 15) + ((quote.obs || 'N/A').length > 15 ? '...' : '\'')}
                                         </Typography>
                                     </Box>
 
                                     {/* CTNS - Sempre editável */}
                                     <Box sx={{ 
-                                        backgroundColor: '#fff1f2',
-                                        padding: isEditingCtns ? 0.5 : 1,
+                                        backgroundColor: '#f8f9fa',
+                                        padding: 0.5,
                                         borderRadius: 1,
-                                        border: '1px solid #fca5a5',
-                                        textAlign: 'center',
-                                        minHeight: isEditingCtns ? '60px' : 'auto',
+                                        border: 'none',
+                                        display: 'flex',
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: 0.5,
+                                        justifyContent: 'space-between',
+                                        minWidth: '120px',
+                                        maxWidth: '200px',
+                                        flex: '1 1 200px',
                                         cursor: isEditingCtns ? 'default' : 'pointer',
                                         '&:hover': {
-                                            backgroundColor: !isEditingCtns ? '#fef2f2' : '#fff1f2',
-                                            border: !isEditingCtns ? '1px solid #f87171' : '1px solid #fca5a5'
+                                            backgroundColor: !isEditingCtns ? '#e9ecef' : '#f8f9fa'
                                         },
                                         transition: 'all 0.2s ease'
                                     }}>
-                                        <Typography variant="body2" sx={{ fontSize: isEditingCtns ? '0.6rem' : '0.75rem', color: '#6c757d', fontWeight: 'bold', mb: 0.5 }}>
-                                            CTNS {isSavingCtns && <span style={{ fontSize: '0.6rem', color: '#1976d2' }}>(Salvando...)</span>}
+                                        <Typography variant="body2" sx={{ fontSize: '14px', color: '#495057', fontWeight: 'bold', flexShrink: 0 }}>
+                                            CTNS: {isSavingCtns && <span style={{ fontSize: '12px', color: '#6c757d' }}>(Salvando...)</span>}
                                         </Typography>
                                         {isEditingCtns ? (
                                             <TextField
@@ -628,13 +887,21 @@ const QuoteCard = ({
                                                 autoFocus
                                                 disabled={isSavingCtns}
                                                 size="small"
+                                                variant="outlined"
                                                 sx={{
-                                                    width: '100%',
-                                                    fontSize: '0.85rem',
+                                                    width: '80px',
                                                     '& .MuiInputBase-input': {
                                                         textAlign: 'center',
-                                                        fontSize: '0.7rem',
-                                                        padding: '2px 4px'
+                                                        fontSize: '14px',
+                                                        padding: '4px 6px',
+                                                        color: '#495057'
+                                                    },
+                                                    '& .MuiOutlinedInput-notchedOutline': {
+                                                        border: 'none'
+                                                    },
+                                                    '& .MuiInputBase-root': {
+                                                        backgroundColor: '#ffffff',
+                                                        borderRadius: '4px'
                                                     }
                                                 }}
                                                 inputProps={{
@@ -648,11 +915,11 @@ const QuoteCard = ({
                                                     onClick={() => setIsEditingCtns(true)}
                                                     style={{
                                                         cursor: 'pointer',
-                                                        padding: '2px',
-                                                        borderRadius: '4px',
-                                                        fontSize: '0.85rem',
+                                                        fontSize: '14px',
                                                         fontWeight: 'bold',
-                                                        color: '#374151'
+                                                        color: '#495057',
+                                                        textAlign: 'right',
+                                                        flex: 1
                                                     }}
                                                 >
                                                     {editableCtns}
@@ -663,248 +930,363 @@ const QuoteCard = ({
 
                                     {/* UNIT/CTN */}
                                     {renderEditableField('unitCtn', 'UNIT/CTN', isEditing ? editedFields.unitCtn : quote.unitCtn, 'number', { 
-                                        backgroundColor: '#fffbeb',
-                                        border: '1px solid #fed7aa'
+                                        backgroundColor: '#f8f9fa',
+                                        border: 'none',
+                                        bold: true
                                     })}
 
                                     {/* QTY */}
                                     <Box sx={{ 
-                                        backgroundColor: '#fef3c7',
-                                        padding: 1,
+                                        backgroundColor: '#f8f9fa',
+                                        padding: 0.5,
                                         borderRadius: 1,
-                                        border: '1px solid #d97706',
-                                        textAlign: 'center'
+                                        border: 'none',
+                                        display: 'flex',
+                                        flexDirection: ' flex',
+                                        alignItems: 'center',
+                                        gap: 0.5,
+                                        justifyContent: 'space-between',
+                                        minWidth: '120px',
+                                        maxWidth: '200px',
+                                        flex: '1 1 200px'
                                     }}>
-                                        <Typography variant="body2" sx={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold', mb: 0.5 }}>
-                                            QTY
+                                        <Typography variant="body2" sx={{ fontSize: '14px', color: '#495057', fontWeight: 'bold', flexShrink: 0 }}>
+                                            QTY:
                                         </Typography>
-                                        <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#d97706' }}>
+                                        <Typography variant="body2" sx={{ fontSize: '14px', fontWeight: 'bold', color: '#495057', textAlign: 'right', flex: 1 }}>
                                             {formatNumber(calculatedQuantity, 0)}
                                         </Typography>
                                     </Box>
 
                                     {/* UNIT */}
                                     <Box sx={{ 
-                                        backgroundColor: '#f3e8ff',
-                                        padding: 1,
+                                        backgroundColor: '#f8f9fa',
+                                        padding: 0.5,
                                         borderRadius: 1,
-                                        border: '1px solid #c4b5fd',
-                                        textAlign: 'center'
+                                        border: 'none',
+                                        display: 'flex',
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: 0.5,
+                                        justifyContent: 'space-between',
+                                        minWidth: '120px',
+                                        maxWidth: '200px',
+                                        flex: '1 1 200px'
                                     }}>
-                                        <Typography variant="body2" sx={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold', mb: 0.5 }}>
-                                            UNIT
+                                        <Typography variant="body2" sx={{ fontSize: '14px', color: '#495057', fontWeight: '500', flexShrink: 0 }}>
+                                            UNIT:
                                         </Typography>
-                                        <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#374151' }}>
+                                        <Typography variant="body2" sx={{ fontSize: '14px', fontWeight: '500', color: '#495057', textAlign: 'right', flex: 1 }}>
                                             {quote.unit || 'N/A'}
                                         </Typography>
                                     </Box>
 
                                     {/* U.PRICE */}
                                     {renderEditableField('unitPrice', 'U.PRICE', isEditing ? editedFields.unitPrice : quote.unitPrice, 'number', { 
-                                        backgroundColor: '#dcfce7',
-                                        border: '1px solid #22c55e',
+                                        backgroundColor: '#f8f9fa',
+                                        border: 'none',
                                         color: '#16a34a',
-                                        decimals: 2
+                                        decimals: 2,
+                                        bold: true
                                     })}
 
-                                    {/* Cálculo CTNS × UNIT/CTN */}
+                                    {/* Cálculo CTNS × UNIT/CTN - Campo Calculado */}
                                     <Box sx={{ 
-                                        backgroundColor: '#ddd6fe',
-                                        padding: 1,
+                                        backgroundColor: '#f8f9fa',
+                                        padding: 0.5,
                                         borderRadius: 1,
-                                        border: '1px solid #7c3aed',
-                                        textAlign: 'center'
+                                        border: 'none',
+                                        display: 'flex',
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: 0.5,
+                                        justifyContent: 'space-between',
+                                        minWidth: '120px',
+                                        maxWidth: '200px',
+                                        flex: '1 1 200px'
                                     }}>
-                                        <Typography variant="body2" sx={{ fontSize: '0.75rem', color: '#7c3aed', fontWeight: 'bold', mb: 0.5 }}>
-                                            Cálculo
+                                        <Typography variant="body2" sx={{ fontSize: '14px', color: '#495057', fontWeight: 'bold', flexShrink: 0 }}>
+                                            CALC:
                                         </Typography>
-                                        <Typography variant="body2" sx={{ fontSize: '0.7rem', fontWeight: 'bold', color: '#7c3aed', lineHeight: 1.2 }}>
-                                            {editableCtns || 0} × {quote.unitCtn || 1}
-                                        </Typography>
-                                        <Typography variant="body2" sx={{ fontSize: '0.7rem', fontWeight: 'bold', color: '#7c3aed' }}>
-                                            = {formatNumber(calculatedQuantity, 0)}
+                                        <Typography variant="body2" sx={{ fontSize: '14px', fontWeight: 'bold', color: '#495057', textAlign: 'right', flex: 1 }}>
+                                            {editableCtns || 0}×{isEditing ? editedFields.unitCtn || 1 : quote.unitCtn || 1}={formatNumber(calculatedQuantity, 0)}
                                         </Typography>
                                     </Box>
 
-                                    {/* AMOUNT DESTACADO */}
+                                    {/* AMOUNT DESTACADO - Campo Calculado */}
                                     <Box sx={{ 
-                                        backgroundColor: '#d1fae5',
-                                        padding: 1,
+                                        backgroundColor: '#f8f9fa',
+                                        padding: 0.5,
                                         borderRadius: 1,
-                                        border: '2px solid #059669',
-                                        textAlign: 'center',
-                                        gridColumn: 'span 2',
-                                        minWidth: '120px'
+                                        border: 'none',
+                                        display: 'flex',
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: 0.5,
+                                        justifyContent: 'space-between',
+                                        minWidth: '120px',
+                                        maxWidth: '200px',
+                                        flex: '1 1 200px'
                                     }}>
-                                        <Typography variant="body2" sx={{ fontSize: '0.75rem', color: '#059669', fontWeight: 'bold', mb: 0.5 }}>
-                                            AMOUNT TOTAL
+                                        <Typography variant="body2" sx={{ fontSize: '14px', color: '#495057', fontWeight: 'bold', flexShrink: 0 }}>
+                                            AMOUNT:
                                         </Typography>
-                                        <Typography variant="body2" sx={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#047857' }}>
-                                            {formatCurrency(calculatedQuantity * (quote.unitPrice || 0))}
+                                        <Typography variant="body2" sx={{ fontSize: '14px', fontWeight: 'bold', color: '#495057', textAlign: 'right', flex: 1 }}>
+                                            {formatCurrency(calculatedQuantity * (isEditing ? editedFields.unitPrice || 0 : quote.unitPrice || 0))}
                                         </Typography>
                                     </Box>
 
                                     {/* LENGTH */}
                                     <Box sx={{ 
-                                        backgroundColor: '#e0f2fe',
-                                        padding: 1,
+                                        backgroundColor: '#f8f9fa',
+                                        padding: 0.5,
                                         borderRadius: 1,
-                                        border: '1px solid #0284c7',
-                                        textAlign: 'center'
+                                        border: 'none',
+                                        display: 'flex',
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: 0.5,
+                                        justifyContent: 'space-between',
+                                        minWidth: '120px',
+                                        maxWidth: '200px',
+                                        flex: '1 1 200px'
                                     }}>
-                                        <Typography variant="body2" sx={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold', mb: 0.5 }}>
-                                            LENGTH
+                                        <Typography variant="body2" sx={{ fontSize: '14px', color: '#495057', fontWeight: '500', flexShrink: 0 }}>
+                                            LENGTH:
                                         </Typography>
-                                        <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#374151' }}>
+                                        <Typography variant="body2" sx={{ fontSize: '14px', fontWeight: '500', color: '#495057', textAlign: 'right', flex: 1 }}>
                                             {formatNumber(quote.length)}cm
                                         </Typography>
                                     </Box>
 
                                     {/* WIDTH */}
                                     <Box sx={{ 
-                                        backgroundColor: '#ecfdf5',
-                                        padding: 1,
+                                        backgroundColor: '#f8f9fa',
+                                        padding: 0.5,
                                         borderRadius: 1,
-                                        border: '1px solid #10b981',
-                                        textAlign: 'center'
+                                        border: 'none',
+                                        display: 'flex',
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: 0.5,
+                                        justifyContent: 'space-between',
+                                        minWidth: '120px',
+                                        maxWidth: '200px',
+                                        flex: '1 1 200px'
                                     }}>
-                                        <Typography variant="body2" sx={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold', mb: 0.5 }}>
-                                            WIDTH
+                                        <Typography variant="body2" sx={{ fontSize: '14px', color: '#495057', fontWeight: '500', flexShrink: 0 }}>
+                                            WIDTH:
                                         </Typography>
-                                        <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#374151' }}>
+                                        <Typography variant="body2" sx={{ fontSize: '14px', fontWeight: '500', color: '#495057', textAlign: 'right', flex: 1 }}>
                                             {formatNumber(quote.width)}cm
                                         </Typography>
                                     </Box>
 
                                     {/* HEIGHT */}
                                     <Box sx={{ 
-                                        backgroundColor: '#f0fdfa',
-                                        padding: 1,
+                                        backgroundColor: '#f8f9fa',
+                                        padding: 0.5,
                                         borderRadius: 1,
-                                        border: '1px solid #065f46',
-                                        textAlign: 'center'
+                                        border: 'none',
+                                        display: 'flex',
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: 0.5,
+                                        justifyContent: 'space-between',
+                                        minWidth: '120px',
+                                        maxWidth: '200px',
+                                        flex: '1 1 200px'
                                     }}>
-                                        <Typography variant="body2" sx={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold', mb: 0.5 }}>
-                                            HEIGHT
+                                        <Typography variant="body2" sx={{ fontSize: '14px', color: '#495057', fontWeight: '500', flexShrink: 0 }}>
+                                            HEIGHT:
                                         </Typography>
-                                        <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#374151' }}>
+                                        <Typography variant="body2" sx={{ fontSize: '14px', fontWeight: '500', color: '#495057', textAlign: 'right', flex: 1 }}>
                                             {formatNumber(quote.height)}cm
                                         </Typography>
                                     </Box>
 
                                     {/* CBM */}
                                     <Box sx={{ 
-                                        backgroundColor: '#fdf4ff',
-                                        padding: 1,
+                                        backgroundColor: '#f8f9fa',
+                                        padding: 0.5,
                                         borderRadius: 1,
-                                        border: '1px solid #9333ea',
-                                        textAlign: 'center'
+                                        border: 'none',
+                                        display: 'flex',
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: 0.5,
+                                        justifyContent: 'space-between',
+                                        minWidth: '120px',
+                                        maxWidth: '200px',
+                                        flex: '1 1 200px'
                                     }}>
-                                        <Typography variant="body2" sx={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold', mb: 0.5 }}>
-                                            CBM
+                                        <Typography variant="body2" sx={{ fontSize: '14px', color: '#495057', fontWeight: '500', flexShrink: 0 }}>
+                                            CBM:
                                         </Typography>
-                                        <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#374151' }}>
+                                        <Typography variant="body2" sx={{ fontSize: '14px', fontWeight: '500', color: '#495057', textAlign: 'right', flex: 1 }}>
                                             {formatNumber(quote.cbm)}
                                         </Typography>
                                     </Box>
 
-                                    {/* CBM TOTAL */}
+                                    {/* CBM TOTAL - Campo Calculado */}
                                     <Box sx={{ 
-                                        backgroundColor: '#fff7ed',
-                                        padding: 1,
+                                        backgroundColor: '#f8f9fa',
+                                        padding: 0.5,
                                         borderRadius: 1,
-                                        border: '1px solid #ea580c',
-                                        textAlign: 'center'
+                                        border: 'none',
+                                        display: 'flex',
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: 0.5,
+                                        justifyContent: 'space-between',
+                                        minWidth: '120px',
+                                        maxWidth: '200px',
+                                        flex: '1 1 200px'
                                     }}>
-                                        <Typography variant="body2" sx={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold', mb: 0.5 }}>
-                                            CBM TOTAL
+                                        <Typography variant="body2" sx={{ fontSize: '14px', color: '#495057', fontWeight: 'bold', flexShrink: 0 }}>
+                                            CBM TOT:
                                         </Typography>
-                                        <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#374151' }}>
-                                            {formatNumber(quote.cbmTotal)}
+                                        <Typography variant="body2" sx={{ fontSize: '14px', fontWeight: 'bold', color: '#495057', textAlign: 'right', flex: 1 }}>
+                                            {formatNumber((isEditing ? editedFields.cbm || 0 : quote.cbm || 0) * (editableCtns || 0))}
                                         </Typography>
                                     </Box>
 
                                     {/* GROSS WEIGHT */}
                                     <Box sx={{ 
-                                        backgroundColor: '#f8fafc',
-                                        padding: 1,
+                                        backgroundColor: '#f8f9fa',
+                                        padding: 0.5,
                                         borderRadius: 1,
-                                        border: '1px solid #64748b',
-                                        textAlign: 'center'
+                                        border: 'none',
+                                        display: 'flex',
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: 0.5,
+                                        justifyContent: 'space-between',
+                                        minWidth: '120px',
+                                        maxWidth: '200px',
+                                        flex: '1 1 200px'
                                     }}>
-                                        <Typography variant="body2" sx={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold', mb: 0.5 }}>
-                                            G.W
+                                        <Typography variant="body2" sx={{ fontSize: '14px', color: '#495057', fontWeight: '500', flexShrink: 0 }}>
+                                            G.W:
                                         </Typography>
-                                        <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#374151' }}>
+                                        <Typography variant="body2" sx={{ fontSize: '14px', fontWeight: '500', color: '#495057', textAlign: 'right', flex: 1 }}>
                                             {formatNumber(quote.grossWeight)}kg
                                         </Typography>
                                     </Box>
 
-                                    {/* TOTAL GROSS WEIGHT */}
+                                    {/* TOTAL GROSS WEIGHT - Campo Calculado */}
                                     <Box sx={{ 
-                                        backgroundColor: '#fcfcfd',
-                                        padding: 1,
+                                        backgroundColor: '#f8f9fa',
+                                        padding: 0.5,
                                         borderRadius: 1,
-                                        border: '1px solid #71717a',
-                                        textAlign: 'center'
+                                        border: 'none',
+                                        display: 'flex',
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: 0.5,
+                                        justifyContent: 'space-between',
+                                        minWidth: '120px',
+                                        maxWidth: '200px',
+                                        flex: '1 1 200px'
                                     }}>
-                                        <Typography variant="body2" sx={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold', mb: 0.5 }}>
-                                            T.G.W
+                                        <Typography variant="body2" sx={{ fontSize: '14px', color: '#495057', fontWeight: 'bold', flexShrink: 0 }}>
+                                            T.G.W:
                                         </Typography>
-                                        <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#374151' }}>
-                                            {formatNumber(quote.totalGrossWeight)}kg
+                                        <Typography variant="body2" sx={{ fontSize: '14px', fontWeight: 'bold', color: '#495057', textAlign: 'right', flex: 1 }}>
+                                            {formatNumber((isEditing ? editedFields.grossWeight || 0 : quote.grossWeight || 0) * (editableCtns || 0))}kg
                                         </Typography>
                                     </Box>
 
                                     {/* NET WEIGHT */}
                                     <Box sx={{ 
-                                        backgroundColor: '#fefeff',
-                                        padding: 1,
+                                        backgroundColor: '#f8f9fa',
+                                        padding: 0.5,
                                         borderRadius: 1,
-                                        border: '1px solid #7c2d12',
-                                        textAlign: 'center'
+                                        border: 'none',
+                                        display: 'flex',
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: 0.5,
+                                        justifyContent: 'space-between',
+                                        minWidth: '120px',
+                                        maxWidth: '200px',
+                                        flex: '1 1 200px'
                                     }}>
-                                        <Typography variant="body2" sx={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold', mb: 0.5 }}>
-                                            N.W
+                                        <Typography variant="body2" sx={{ fontSize: '14px', color: '#495057', fontWeight: '500', flexShrink: 0 }}>
+                                            N.W:
                                         </Typography>
-                                        <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#374151' }}>
+                                        <Typography variant="body2" sx={{ fontSize: '14px', fontWeight: '500', color: '#495057', textAlign: 'right', flex: 1 }}>
                                             {formatNumber(quote.netWeight)}kg
                                         </Typography>
                                     </Box>
 
-                                    {/* TOTAL NET WEIGHT */}
+                                    {/* TOTAL NET WEIGHT - Campo Calculado */}
                                     <Box sx={{ 
-                                        backgroundColor: '#fefefe',
-                                        padding: 1,
+                                        backgroundColor: '#f8f9fa',
+                                        padding: 0.5,
                                         borderRadius: 1,
-                                        border: '1px solid #99250a',
-                                        textAlign: 'center'
+                                        border: 'none',
+                                        display: 'flex',
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: 0.5,
+                                        justifyContent: 'space-between',
+                                        minWidth: '120px',
+                                        maxWidth: '200px',
+                                        flex: '1 1 200px'
                                     }}>
-                                        <Typography variant="body2" sx={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold', mb: 0.5 }}>
-                                            T.N.W
+                                        <Typography variant="body2" sx={{ fontSize: '14px', color: '#495057', fontWeight: 'bold', flexShrink: 0 }}>
+                                            T.N.W:
                                         </Typography>
-                                        <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#374151' }}>
-                                            {formatNumber(quote.totalNetWeight)}kg
+                                        <Typography variant="body2" sx={{ fontSize: '14px', fontWeight: 'bold', color: '#495057', textAlign: 'right', flex: 1 }}>
+                                            {formatNumber((isEditing ? editedFields.netWeight || 0 : quote.netWeight || 0) * (editableCtns || 0))}kg
                                         </Typography>
                                     </Box>
 
                                     {/* PESO UNITÁRIO */}
                                     <Box sx={{ 
-                                        backgroundColor: '#fffeff',
-                                        padding: 1,
+                                        backgroundColor: '#f8f9fa',
+                                        padding: 0.5,
                                         borderRadius: 1,
-                                        border: '1px solid #be1e09',
-                                        textAlign: 'center'
+                                        border: 'none',
+                                        display: 'flex',
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: 0.5,
+                                        justifyContent: 'space-between',
+                                        minWidth: '120px',
+                                        maxWidth: '200px',
+                                        flex: '1 1 200px'
                                     }}>
-                                        <Typography variant="body2" sx={{ fontSize: '0.75rem', color: '#6c757d', fontWeight: 'bold', mb: 0.5 }}>
-                                            PESO UNITÁRIO
+                                        <Typography variant="body2" sx={{ fontSize: '14px', color: '#495057', fontWeight: '500', flexShrink: 0 }}>
+                                            P.U:
                                         </Typography>
-                                        <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#374151' }}>
+                                        <Typography variant="body2" sx={{ fontSize: '14px', fontWeight: '500', color: '#495057', textAlign: 'right', flex: 1 }}>
                                             {formatNumber(quote.pesoUnitario)}g
                                         </Typography>
                                     </Box>
-                                </Box>
 
+                                    {/* MOQ - Editable only in edit mode */}
+                                    {renderEditableField('moq', 'MOQ', isEditing ? editedFields.moq : quote.moq, 'number', { 
+                                        backgroundColor: '#f8f9fa',
+                                        border: 'none'
+                                    })}
+
+                                    {/* MOQ LOGO - Editable only in edit mode */}
+                                    {renderEditableField('moqLogo', 'MOQ LOGO', isEditing ? editedFields.moqLogo : quote.moqLogo, 'number', { 
+                                        backgroundColor: '#f8f9fa',
+                                        border: 'none'
+                                    })}
+
+                                    {/* COMENTS - Editable only in edit mode */}
+                                    {renderEditableField('comentarios', 'COMENTS', isEditing ? editedFields.comentarios : quote.comentarios, 'text', { 
+                                        backgroundColor: '#f8f9fa',
+                                        border: 'none',
+                                        multiline: true,
+                                        maxLength: 100,
+                                        bold: true
+                                    })}
+                                </Box>
                             </Box>
                         </div>
                     </div>

@@ -206,6 +206,23 @@ export const deleteQuotesByFactory = async (factoryId) => {
 export const getQuoteImportsByFactory = async (factoryId) => {
     const quotes = await getQuotesByFactory(factoryId);
     
+    // Buscar dados salvos da coleção quoteImports
+    const quoteImportsQuery = query(
+        collection(db, 'quoteImports'),
+        where('factoryId', '==', factoryId)
+    );
+    const quoteImportsSnapshot = await getDocs(quoteImportsQuery);
+    const savedImports = new Map();
+    
+    quoteImportsSnapshot.forEach((doc) => {
+        const data = doc.data();
+        savedImports.set(data.updateDate, {
+            importName: data.importName,
+            dataPedido: data.dataPedido,
+            lotePedido: data.lotePedido
+        });
+    });
+    
     // Agrupar cotações por data e hora de criação (importação)
     const importsMap = new Map();
     
@@ -222,6 +239,7 @@ export const getQuoteImportsByFactory = async (factoryId) => {
         });
         
         if (!importsMap.has(importKey)) {
+            const savedData = savedImports.get(importKey) || {};
             importsMap.set(importKey, {
                 id: importKey,
                 date: importDate,
@@ -233,7 +251,9 @@ export const getQuoteImportsByFactory = async (factoryId) => {
                 factoryId: factoryId,
                 editable: true,
                 isEditing: false,
-                importName: quote.importName || null // Incluir o nome da importação se existir
+                importName: savedData.importName || '',
+                dataPedido: savedData.dataPedido || '',
+                lotePedido: savedData.lotePedido || ''
             });
         }
         
@@ -241,11 +261,6 @@ export const getQuoteImportsByFactory = async (factoryId) => {
         importData.count += 1;
         importData.totalValue += quote.amount || 0;
         importData.quotes.push(quote);
-        
-        // Se alguma cotação desta importação tem importName, usar esse nome
-        if (quote.importName && !importData.importName) {
-            importData.importName = quote.importName;
-        }
     });
     
     // Converter para array e ordenar por data/hora (mais recente primeiro)

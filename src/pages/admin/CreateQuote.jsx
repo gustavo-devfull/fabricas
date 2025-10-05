@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Container, Row, Col, Card, Button, Alert } from 'react-bootstrap';
 import { Box, TextField, Typography, Button as MuiButton, Divider, IconButton } from '@mui/material';
 import { Add, Delete, Save, ArrowBack } from '@mui/icons-material';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { getAllFactories } from '../../firebase/firestoreService';
+import { formatCurrency, formatDate, formatDateTime } from '../../utils/formatters';
 import { useNavigate } from 'react-router-dom';
+import productSearchService from '../../services/productSearchService';
 
 const CreateQuote = () => {
     const navigate = useNavigate();
@@ -43,9 +45,20 @@ const CreateQuote = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(false);
+    const [isSearchingProduct, setIsSearchingProduct] = useState(false);
+    const [productSearchResult, setProductSearchResult] = useState(null);
+    const searchTimeoutRef = useRef(null);
+    const lastSearchRef = useRef('');
 
     useEffect(() => {
         loadFactories();
+        
+        // Limpeza do timeout quando o componente for desmontado
+        return () => {
+            if (searchTimeoutRef.current) {
+                clearTimeout(searchTimeoutRef.current);
+            }
+        };
     }, []);
 
     const loadFactories = async () => {
@@ -70,7 +83,118 @@ const CreateQuote = () => {
             ...prev,
             [field]: value
         }));
+
+        // Se o campo alterado for REF, buscar automaticamente o produto
+        if (field === 'ref' && value && value.trim().length >= 3) {
+            const cleanValue = value.trim();
+            
+            // Cancelar busca anterior se existir
+            if (searchTimeoutRef.current) {
+                clearTimeout(searchTimeoutRef.current);
+            }
+            
+            // Só buscar se o valor for diferente da última busca
+            if (cleanValue !== lastSearchRef.current) {
+                searchTimeoutRef.current = setTimeout(() => {
+                    // Buscar diretamente sem verificar currentProduct.ref
+                    console.log(`🔍 [TIMEOUT] Executando busca para: ${cleanValue}`);
+                    lastSearchRef.current = cleanValue;
+                    searchProductByRef(cleanValue);
+                }, 800); // Aguardar 800ms antes de buscar
+            }
+        } else if (field === 'ref' && (!value || value.trim().length < 3)) {
+            // Limpar resultado se REF for muito curta
+            setProductSearchResult(null);
+            lastSearchRef.current = '';
+        }
     };
+
+    const searchProductByRef = async (ref) => {
+        console.log(`🔍 [SEARCH] Iniciando busca para REF: "${ref}"`);
+        
+        if (!ref || ref.length < 3) {
+            console.log(`❌ [SEARCH] REF muito curta ou vazia: "${ref}"`);
+            setProductSearchResult(null);
+            return;
+        }
+
+        setIsSearchingProduct(true);
+        console.log(`🔍 [SEARCH] Definindo isSearchingProduct = true`);
+
+        try {
+            console.log(`🔍 Buscando produto REF: ${ref}`);
+            const productData = await productSearchService.searchProductByRef(ref);
+            console.log(`🔍 [CREATEQUOTE] Resposta do productSearchService:`, productData);
+            console.log(`🔍 [CREATEQUOTE] Tipo da resposta:`, typeof productData);
+            console.log(`🔍 [CREATEQUOTE] Resposta válida:`, !!productData);
+            
+            if (productData) {
+                console.log(`✅ Produto encontrado:`, productData);
+                console.log(`✅ [CREATEQUOTE] Definindo productSearchResult...`);
+                setProductSearchResult(productData);
+                console.log(`✅ [CREATEQUOTE] ProductSearchResult definido!`);
+                
+                // Preencher automaticamente os campos com os dados encontrados
+                setCurrentProduct(prev => ({
+                    ...prev,
+                    ncm: productData.ncm || prev.ncm,
+                    description: productData.description || prev.description,
+                    name: productData.name || prev.name,
+                    englishDescription: productData.englishDescription || prev.englishDescription,
+                    import: productData.import || prev.import,
+                    remark: productData.remark || prev.remark,
+                    obs: productData.obs || prev.obs,
+                    unit: productData.unit || prev.unit,
+                    unitPrice: productData.unitPrice || prev.unitPrice,
+                    length: productData.length || prev.length,
+                    width: productData.width || prev.width,
+                    height: productData.height || prev.height,
+                    cbm: productData.cbm || prev.cbm,
+                    grossWeight: productData.grossWeight || prev.grossWeight,
+                    netWeight: productData.netWeight || prev.netWeight,
+                    pesoUnitario: productData.pesoUnitario || prev.pesoUnitario
+                }));
+
+                // Mostrar mensagem de sucesso
+                setError(null);
+            } else {
+                console.log(`❌ Produto ${ref} não encontrado`);
+                setProductSearchResult(null);
+            }
+        } catch (error) {
+            console.error(`❌ Erro ao buscar produto ${ref}:`, error);
+            setProductSearchResult(null);
+        } finally {
+            setIsSearchingProduct(false);
+        }
+    };
+
+    const clearProductForm = () => {
+        setCurrentProduct({
+            ref: '',
+            ncm: '',
+            description: '',
+            name: '',
+            englishDescription: '',
+            import: '',
+            remark: '',
+            obs: '',
+            ctns: 0,
+            unitCtn: 0,
+            unit: '',
+            unitPrice: 0,
+            length: 0,
+            width: 0,
+            height: 0,
+            cbm: 0,
+            grossWeight: 0,
+            netWeight: 0,
+            pesoUnitario: 0
+        });
+        setProductSearchResult(null);
+        setError(null);
+    };
+
 
     const addProduct = () => {
         if (!currentProduct.ref.trim()) {
@@ -238,7 +362,6 @@ const CreateQuote = () => {
                                 {/* Seleção de Fábrica */}
                                 <TextField
                                     select
-                                    label="Fábrica"
                                     value={selectedFactory}
                                     onChange={(e) => setSelectedFactory(e.target.value)}
                                     fullWidth
@@ -254,40 +377,39 @@ const CreateQuote = () => {
 
                                 {/* Número da Importação */}
                                 <TextField
-                                    label="Número da Importação"
                                     value={quoteData.importNumber}
                                     onChange={(e) => handleQuoteDataChange('importNumber', e.target.value)}
                                     fullWidth
+                                    placeholder="Número da Importação"
                                     required
                                 />
 
                                 {/* Nome da Importação */}
                                 <TextField
-                                    label="Nome da Importação"
                                     value={quoteData.importName}
                                     onChange={(e) => handleQuoteDataChange('importName', e.target.value)}
                                     fullWidth
-                                    placeholder="Deixe vazio para gerar automaticamente"
+                                    placeholder="Nome da Importação"
                                 />
 
                                 {/* Remark */}
                                 <TextField
-                                    label="Remark"
                                     value={quoteData.remark}
                                     onChange={(e) => handleQuoteDataChange('remark', e.target.value)}
                                     fullWidth
                                     multiline
                                     rows={2}
+                                    placeholder="Remark"
                                 />
 
                                 {/* OBS */}
                                 <TextField
-                                    label="Observações (OBS)"
                                     value={quoteData.obs}
                                     onChange={(e) => handleQuoteDataChange('obs', e.target.value)}
                                     fullWidth
                                     multiline
                                     rows={2}
+                                    placeholder="Observações (OBS)"
                                 />
 
                                 <Divider />
@@ -313,18 +435,87 @@ const CreateQuote = () => {
                         <Card.Body>
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                 {/* REF (obrigatório) */}
-                                <TextField
-                                    label="REF *"
-                                    value={currentProduct.ref}
-                                    onChange={(e) => handleProductChange('ref', e.target.value)}
-                                    fullWidth
-                                    required
-                                    size="small"
-                                />
+                                <Box sx={{ position: 'relative' }}>
+                                    <TextField
+                                        value={currentProduct.ref}
+                                        onChange={(e) => handleProductChange('ref', e.target.value)}
+                                        fullWidth
+                                        placeholder="REF *"
+                                        required
+                                        size="small"
+                                        InputProps={{
+                                            endAdornment: isSearchingProduct ? (
+                                                <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
+                                                    <Box sx={{ 
+                                                        width: 16, 
+                                                        height: 16, 
+                                                        border: '2px solid #1976d2', 
+                                                        borderTop: '2px solid transparent',
+                                                        borderRadius: '50%',
+                                                        animation: 'spin 1s linear infinite',
+                                                        '@keyframes spin': {
+                                                            '0%': { transform: 'rotate(0deg)' },
+                                                            '100%': { transform: 'rotate(360deg)' }
+                                                        }
+                                                    }} />
+                                                </Box>
+                                            ) : productSearchResult ? (
+                                                <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
+                                                    <Box sx={{ 
+                                                        width: 16, 
+                                                        height: 16, 
+                                                        borderRadius: '50%', 
+                                                        backgroundColor: '#4caf50',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        color: 'white',
+                                                        fontSize: '10px',
+                                                        fontWeight: 'bold'
+                                                    }}>
+                                                        ✓
+                                                    </Box>
+                                                </Box>
+                                            ) : null
+                                        }}
+                                    />
+                                    {productSearchResult && (
+                                        <Box sx={{ 
+                                            mt: 1, 
+                                            p: 1, 
+                                            backgroundColor: '#e8f5e8', 
+                                            borderRadius: 1,
+                                            border: '1px solid #4caf50'
+                                        }}>
+                                            <Typography variant="caption" sx={{ color: '#2e7d32', fontWeight: 'bold' }}>
+                                                ✅ Produto encontrado na base de dados
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: '#2e7d32', display: 'block', mt: 0.5 }}>
+                                                Campos preenchidos automaticamente
+                                            </Typography>
+                                        </Box>
+                                    )}
+                                    {!isSearchingProduct && !productSearchResult && currentProduct.ref && currentProduct.ref.length >= 3 && (
+                                        <Box sx={{ 
+                                            mt: 1, 
+                                            p: 1, 
+                                            backgroundColor: '#fff3cd', 
+                                            borderRadius: 1,
+                                            border: '1px solid #ffc107'
+                                        }}>
+                                            <Typography variant="caption" sx={{ color: '#856404', fontWeight: 'bold' }}>
+                                                ℹ️ Produto não encontrado na base de dados
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: '#856404', display: 'block', mt: 0.5 }}>
+                                                Preencha os campos manualmente
+                                            </Typography>
+                                        </Box>
+                                    )}
+                                </Box>
 
                                 {/* NCM */}
                                 <TextField
-                                    label="NCM"
+                                    placeholder="NCM"
                                     value={currentProduct.ncm}
                                     onChange={(e) => handleProductChange('ncm', e.target.value)}
                                     fullWidth
@@ -333,7 +524,7 @@ const CreateQuote = () => {
 
                                 {/* Description */}
                                 <TextField
-                                    label="Description"
+                                    placeholder="Description"
                                     value={currentProduct.description}
                                     onChange={(e) => handleProductChange('description', e.target.value)}
                                     fullWidth
@@ -342,7 +533,7 @@ const CreateQuote = () => {
 
                                 {/* Name */}
                                 <TextField
-                                    label="Name"
+                                    placeholder="Name"
                                     value={currentProduct.name}
                                     onChange={(e) => handleProductChange('name', e.target.value)}
                                     fullWidth
@@ -351,7 +542,7 @@ const CreateQuote = () => {
 
                                 {/* English Description */}
                                 <TextField
-                                    label="English Description"
+                                    placeholder="English Description"
                                     value={currentProduct.englishDescription}
                                     onChange={(e) => handleProductChange('englishDescription', e.target.value)}
                                     fullWidth
@@ -360,7 +551,7 @@ const CreateQuote = () => {
 
                                 {/* Import */}
                                 <TextField
-                                    label="Import"
+                                    placeholder="Import"
                                     value={currentProduct.import}
                                     onChange={(e) => handleProductChange('import', e.target.value)}
                                     fullWidth
@@ -369,7 +560,7 @@ const CreateQuote = () => {
 
                                 {/* Remark */}
                                 <TextField
-                                    label="Remark"
+                                    placeholder="Remark"
                                     value={currentProduct.remark}
                                     onChange={(e) => handleProductChange('remark', e.target.value)}
                                     fullWidth
@@ -378,7 +569,7 @@ const CreateQuote = () => {
 
                                 {/* OBS */}
                                 <TextField
-                                    label="OBS"
+                                    placeholder="OBS"
                                     value={currentProduct.obs}
                                     onChange={(e) => handleProductChange('obs', e.target.value)}
                                     fullWidth
@@ -416,7 +607,7 @@ const CreateQuote = () => {
                                 <Row>
                                     <Col xs={6}>
                                         <TextField
-                                            label="UNIT"
+                                            placeholder="UNIT"
                                             value={currentProduct.unit}
                                             onChange={(e) => handleProductChange('unit', e.target.value)}
                                             fullWidth
@@ -521,15 +712,24 @@ const CreateQuote = () => {
                                     </Col>
                                 </Row>
 
-                                <MuiButton
-                                    variant="contained"
-                                    startIcon={<Add />}
-                                    onClick={addProduct}
-                                    fullWidth
-                                    sx={{ mt: 2 }}
-                                >
-                                    Adicionar Produto
-                                </MuiButton>
+                                <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+                                    <MuiButton
+                                        variant="contained"
+                                        startIcon={<Add />}
+                                        onClick={addProduct}
+                                        sx={{ flex: 1 }}
+                                    >
+                                        Adicionar Produto
+                                    </MuiButton>
+                                    <MuiButton
+                                        variant="outlined"
+                                        onClick={clearProductForm}
+                                        sx={{ minWidth: '100px' }}
+                                    >
+                                        Limpar
+                                    </MuiButton>
+                                </Box>
+
                             </Box>
                         </Card.Body>
                     </Card>

@@ -142,9 +142,9 @@ const ImportData = () => {
             // Mostrar mensagem de sucesso
             setSuccess(`✅ Sucesso! ${quotesWithFactory.length} cotações importadas para "${factories.find(f => f.id === selectedFactory)?.nomeFabrica}". Redirecionando para o dashboard...`);
             
-            // Redirecionar para o dashboard após importação bem-sucedida
+            // Redirecionar para o dashboard com a fábrica selecionada após importação bem-sucedida
             setTimeout(() => {
-                navigate('/admin/dashboard');
+                navigate(`/admin/dashboard?factory=${selectedFactory}`);
             }, 2000);
 
         } catch (err) {

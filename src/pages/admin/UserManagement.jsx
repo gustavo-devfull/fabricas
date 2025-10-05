@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getUsersData, addUser, deleteUserByUid, updateUserRole } from '../../firebase/firestoreService';
 import { useAuth } from '../../contexts/AuthContext';
+import { formatDate, formatDateTime } from '../../utils/formatters';
 import { Container, Card, Alert, Button, Table, Form, Modal, Row, Col } from 'react-bootstrap';
 
 const UserManagement = () => {
@@ -161,7 +162,7 @@ const UserManagement = () => {
                                     <tr key={user.uid}>
                                         <td>{user.email}</td>
                                         <td><span className={`badge ${user.role === 'admin' ? 'bg-info' : 'bg-secondary'}`}>{user.role}</span></td>
-                                        <td>{user.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}</td>
+                                        <td>{formatDate(user.createdAt?.toDate?.()) || 'N/A'}</td>
                                         <td className="text-center">
                                             <Button
                                                 onClick={() => handleOpenEditModal(user)}

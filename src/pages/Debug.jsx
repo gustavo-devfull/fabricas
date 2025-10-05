@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db } from '../firebase/config';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { collection, getDocs, query, limit } from 'firebase/firestore';
 
 const Debug = () => {
-    const { currentUser, loading } = useAuth();
+    const authData = useAuth();
+    const currentUser = authData?.currentUser || null;
+    const loading = authData?.loading || false;
     const [firebaseStatus, setFirebaseStatus] = useState('checking...');
     const [errorLog, setErrorLog] = useState([]);
 
@@ -19,14 +21,39 @@ const Debug = () => {
             await getDocs(q);
             setFirebaseStatus('Connected ✅');
         } catch (error) {
-            setErrorLog(prev => [...prev, `${new Date().toISOString()}: ${error.message}`]);
+            const errorMessage = `Firebase connection error: ${error.message}`;
+            setErrorLog(prev => [...prev, `${new Date().toISOString()}: ${errorMessage}`]);
             setFirebaseStatus(`Error: ${error.message}`);
+            console.error('🔥 Debug - Firebase Error:', error);
         }
     };
 
     const addLogMessage = (message) => {
         setErrorLog(prev => [...prev, `${new Date().toISOString()}: ${message}`]);
     };
+
+    // Capturar erros JavaScript globais
+    useEffect(() => {
+        const handleError = (event) => {
+            const errorMessage = `JavaScript Error: ${event.message} at ${event.filename}:${event.lineno}`;
+            setErrorLog(prev => [...prev, errorMessage]);
+            console.error('🐛 Debug captured error:', event);
+        };
+
+        const handleUnhandledRejection = (event) => {
+            const errorMessage = `Unhandled Promise Rejection: ${event.reason}`;
+            setErrorLog(prev => [...prev, errorMessage]);
+            console.error('🐛 Debug captured rejection:', event);
+        };
+
+        window.addEventListener('error', handleError);
+        window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+        return () => {
+            window.removeEventListener('error', handleError);
+            window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+        };
+    }, []);
 
     return (
         <div style={{ 
@@ -40,8 +67,14 @@ const Debug = () => {
             <div style={{ backgroundColor: 'white', padding: '1rem', margin: '1rem 0', borderRadius: '8px' }}>
                 <h3>🔐 Authentication Status</h3>
                 <p><strong>Loading:</strong> {loading ? 'Yes' : 'No'}</p>
+                <p><strong>Auth Data:</strong> {authData ? 'Available' : 'Not available'}</p>
                 <p><strong>Current User:</strong> {currentUser ? currentUser.email : 'Not logged in'}</p>
                 <p><strong>User ID:</strong> {currentUser ? currentUser.uid : 'N/A'}</p>
+                <p><strong>Auth Debug:</strong> {JSON.stringify({
+                    hasData: !!authData,
+                    hasUser: !!currentUser,
+                    loading: loading
+                }, null, 2)}</p>
             </div>
 
             <div style={{ backgroundColor: 'white', padding: '1rem', margin: '1rem 0', borderRadius: '8px' }}>

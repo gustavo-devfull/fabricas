@@ -1,305 +1,321 @@
-import React, { useState, useRef } from 'react';
-import { Modal, Button, ProgressBar, Alert, Table, Badge } from 'react-bootstrap';
-import { CloudUpload, Description, CheckCircle, Cancel, Download } from '@mui/icons-material';
+import React, { useState } from 'react';
+import { Modal, Button, Alert, Spinner, Form, Row, Col } from 'react-bootstrap';
+import { Box, Typography, Chip } from '@mui/material';
+import { FileUpload, CloudUpload, Image, CheckCircle, Error } from '@mui/icons-material';
 import excelImageImportService from '../../services/excelImageImportService';
 
 const ImageImportModal = ({ show, onHide, onImportComplete }) => {
     const [file, setFile] = useState(null);
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [progress, setProgress] = useState(0);
-    const [results, setResults] = useState(null);
-    const [error, setError] = useState(null);
-    const fileInputRef = useRef(null);
+    const [importing, setImporting] = useState(false);
+    const [progress, setProgress] = useState(null);
+    const [result, setResult] = useState(null);
+    const [fileName, setFileName] = useState('');
 
-    const handleFileSelect = (event) => {
+    const handleFileChange = (event) => {
         const selectedFile = event.target.files[0];
+        
         if (selectedFile) {
-            try {
-                excelImageImportService.validateFile(selectedFile);
-                setFile(selectedFile);
-                setError(null);
-            } catch (err) {
-                setError(err.message);
-                setFile(null);
+            // Validar extensão do arquivo
+            const fileName = selectedFile.name.toLowerCase();
+            const isValidFormat = excelImageImportService.supportedFormats.some(format => 
+                fileName.endsWith(format)
+            );
+            
+            if (!isValidFormat) {
+                alert('Por favor, selecione um arquivo Excel (.xlsx ou .xls)');
+                event.target.value = '';
+                return;
             }
+            
+            setFile(selectedFile);
+            setFileName(selectedFile.name);
+            setResult(null);
         }
     };
 
     const handleImport = async () => {
         if (!file) {
-            setError('Selecione um arquivo Excel');
+            alert('Por favor, selecione um arquivo Excel');
             return;
         }
 
-        setIsProcessing(true);
-        setProgress(0);
-        setError(null);
-        setResults(null);
+        setImporting(true);
+        setResult(null);
+        setProgress({ processed: 0, total: 0, currentStep: 'Iniciando...' });
 
         try {
-            // Simular progresso
-            const progressInterval = setInterval(() => {
-                setProgress(prev => {
-                    if (prev >= 90) {
-                        clearInterval(progressInterval);
-                        return prev;
-                    }
-                    return prev + 10;
-                });
-            }, 200);
+            console.log('🚀 Iniciando importação de imagens do Excel:', fileName);
 
-            const importResults = await excelImageImportService.importImagesFromExcel(file, {
-                overwrite: false
+            // Configurar callback para atualizar progresso
+            const onProgress = (processed, total, currentStep) => {
+                setProgress({
+                    processed,
+                    total,
+                    currentStep,
+                    percentage: total > 0 ? Math.round((processed / total) * 100) : 0
+                });
+            };
+
+            // Executar importação
+            const importResult = await excelImageImportService.importImagesFromExcel(file, { 
+                onProgress 
             });
 
-            clearInterval(progressInterval);
-            setProgress(100);
-            setResults(importResults);
+            console.log('✅ Importação concluída:', importResult);
 
-            // Chamar callback se fornecido
+            setResult(importResult);
+            
+            // Notificar componente pai sobre o resultado
             if (onImportComplete) {
-                onImportComplete(importResults);
+                onImportComplete(importResult);
             }
 
-        } catch (err) {
-            setError(err.message);
+        } catch (error) {
+            console.error('❌ Erro na importação:', error);
+            
+            setResult({
+                success: 0,
+                errors: 1,
+                processed: [],
+                message: error.message
+            });
         } finally {
-            setIsProcessing(false);
+            setImporting(false);
+            setProgress(null);
         }
     };
 
     const handleClose = () => {
         setFile(null);
-        setResults(null);
-        setError(null);
-        setProgress(0);
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
+        setFileName('');
+        setImporting(false);
+        setProgress(null);
+        setResult(null);
+        
+        // Limpar input
+        const fileInput = document.querySelector('#imageImportFile');
+        if (fileInput) {
+            fileInput.value = '';
         }
+        
         onHide();
     };
 
-    const handleExportResults = () => {
-        if (results) {
-            excelImageImportService.exportResultsToCSV(results);
-        }
+    const handleDownloadLog = () => {
+        if (!result) return;
+
+        const logData = {
+            timestamp: new Date().toISOString(),
+            fileName: fileName,
+            result: result
+        };
+
+        const blob = new Blob([JSON.stringify(logData, null, 2)], { 
+            type: 'application/json' 
+        });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `importacao_log_${Date.now()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     };
 
-    const getStatusBadge = (item) => {
-        if (item.skipped) {
-            return <Badge bg="warning">Pulado</Badge>;
+    const getFileIcon = () => {
+        if (!fileName) return <CloudUpload />;
+        
+        const fileNameLower = fileName.toLowerCase();
+        if (fileNameLower.includes('image') || fileNameLower.includes('photo')) {
+            return <Image />;
         }
-        return <Badge bg="success">Processado</Badge>;
+        return <FileUpload />;
     };
 
     return (
         <Modal show={show} onHide={handleClose} size="lg" centered>
             <Modal.Header closeButton>
-                <Modal.Title>
-                    <CloudUpload className="me-2" />
-                    Importar Imagens do Excel
-                </Modal.Title>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CloudUpload color="primary" />
+                    <Typography variant="h6" component="span">
+                        Importação de Imagens do Excel
+                    </Typography>
+                </Box>
             </Modal.Header>
-            
+
             <Modal.Body>
-                {!results ? (
-                    <div>
-                        {/* Seleção de Arquivo */}
-                        <div className="mb-4">
-                            <label className="form-label">
-                                <Description className="me-2" />
-                                Selecione o arquivo Excel (.xlsx, .xls)
-                            </label>
+                {/* Instruções */}
+                <Alert variant="info" className="mb-3">
+                    <strong>Como funciona:</strong>
+                    <br />
+                    • Faça upload de uma planilha Excel (.xlsx/.xls)
+                    <br />
+                    • A planilha deve ter uma coluna "REF" com as referências dos produtos
+                    <br />
+                    • As imagens devem estar incorporadas na planilha (não como links)
+                    <br />
+                    • As imagens serão extraídas e associadas aos produtos correspondentes
+                </Alert>
+
+                {/* Upload Section */}
+                {!importing && (
+                    <Form.Group className="mb-3">
+                        <Form.Label htmlFor="imageImportFile">
+                            <strong>Selecionar Arquivo Excel</strong>
+                        </Form.Label>
+                        <div className="d-flex align-items-center gap-3">
                             <input
-                                ref={fileInputRef}
+                                id="imageImportFile"
                                 type="file"
                                 className="form-control"
                                 accept=".xlsx,.xls"
-                                onChange={handleFileSelect}
-                                disabled={isProcessing}
+                                onChange={handleFileChange}
+                                disabled={importing}
                             />
-                            {file && (
-                                <div className="mt-2">
-                                    <small className="text-muted">
-                                        Arquivo selecionado: <strong>{file.name}</strong> 
-                                        ({(file.size / 1024 / 1024).toFixed(2)} MB)
-                                    </small>
-                                </div>
+                            {fileName && (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    {getFileIcon()}
+                                    <Typography variant="body2" color="text.secondary">
+                                        {fileName}
+                                    </Typography>
+                                    <Chip label="Pronto" color="success" size="small" />
+                                </Box>
                             )}
                         </div>
-
-                        {/* Barra de Progresso */}
-                        {isProcessing && (
-                            <div className="mb-4">
-                                <div className="d-flex justify-content-between align-items-center mb-2">
-                                    <span>Processando arquivo...</span>
-                                    <span>{progress}%</span>
-                                </div>
-                                <ProgressBar now={progress} animated />
-                            </div>
-                        )}
-
-                        {/* Botão de Importação */}
-                        <div className="d-flex justify-content-end">
-                            <Button
-                                variant="primary"
-                                onClick={handleImport}
-                                disabled={!file || isProcessing}
-                                className="d-flex align-items-center"
-                            >
-                                {isProcessing ? (
-                                    <>
-                                        <div className="spinner-border spinner-border-sm me-2" role="status">
-                                            <span className="visually-hidden">Carregando...</span>
-                                        </div>
-                                        Processando...
-                                    </>
-                                ) : (
-                                    <>
-                                        <CloudUpload className="me-2" />
-                                        Importar Imagens
-                                    </>
-                                )}
-                            </Button>
-                        </div>
-                    </div>
-                ) : (
-                    <div>
-                        {/* Resultados da Importação */}
-                        <div className="mb-4">
-                            <h5>Resultados da Importação</h5>
-                            <div className="row">
-                                <div className="col-md-3">
-                                    <div className="card text-center">
-                                        <div className="card-body">
-                                            <h6 className="card-title text-primary">
-                                                {results.success + results.errors}
-                                            </h6>
-                                            <small className="text-muted">Total Processado</small>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="col-md-3">
-                                    <div className="card text-center">
-                                        <div className="card-body">
-                                            <h6 className="card-title text-success">
-                                                <CheckCircle className="me-1" />
-                                                {results.success}
-                                            </h6>
-                                            <small className="text-muted">Sucessos</small>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="col-md-3">
-                                    <div className="card text-center">
-                                        <div className="card-body">
-                                            <h6 className="card-title text-danger">
-                                                <Cancel className="me-1" />
-                                                {results.errors}
-                                            </h6>
-                                            <small className="text-muted">Erros</small>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="col-md-3">
-                                    <div className="card text-center">
-                                        <div className="card-body">
-                                            <h6 className="card-title text-info">
-                                                {excelImageImportService.getImportStats(results).successRate.toFixed(1)}%
-                                            </h6>
-                                            <small className="text-muted">Taxa de Sucesso</small>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Tabela de Resultados */}
-                        {results.processed.length > 0 && (
-                            <div className="mb-4">
-                                <div className="d-flex justify-content-between align-items-center mb-3">
-                                    <h6>Produtos Processados</h6>
-                                    <Button
-                                        variant="outline-primary"
-                                        size="sm"
-                                        onClick={handleExportResults}
-                                        className="d-flex align-items-center"
-                                    >
-                                        <Download className="me-1" />
-                                        Exportar CSV
-                                    </Button>
-                                </div>
-                                
-                                <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                                    <Table striped bordered hover size="sm">
-                                        <thead>
-                                            <tr>
-                                                <th>REF</th>
-                                                <th>Nome do Arquivo</th>
-                                                <th>Status</th>
-                                                <th>Preview</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {results.processed.map((item, index) => (
-                                                <tr key={index}>
-                                                    <td>{item.ref}</td>
-                                                    <td>{item.fileName}</td>
-                                                    <td>{getStatusBadge(item)}</td>
-                                                    <td>
-                                                        {item.imageUrl && (
-                                                            <img
-                                                                src={item.imageUrl}
-                                                                alt={item.ref}
-                                                                style={{
-                                                                    width: '40px',
-                                                                    height: '40px',
-                                                                    objectFit: 'cover',
-                                                                    borderRadius: '4px'
-                                                                }}
-                                                            />
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </Table>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Lista de Erros */}
-                        {results.errorsList.length > 0 && (
-                            <div className="mb-4">
-                                <h6 className="text-danger">Erros Encontrados</h6>
-                                <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                                    {results.errorsList.map((error, index) => (
-                                        <Alert key={index} variant="danger" className="py-2">
-                                            <strong>REF {error.ref}:</strong> {error.error}
-                                        </Alert>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
+                    </Form.Group>
                 )}
 
-                {/* Mensagens de Erro */}
-                {error && (
-                    <Alert variant="danger" className="mt-3">
-                        <Cancel className="me-2" />
-                        {error}
-                    </Alert>
+                {/* Progress Section */}
+                {importing && progress && (
+                    <Box sx={{ mb: 3 }}>
+                        <Typography variant="h6" className="mb-2">
+                            {progress.currentStep}
+                        </Typography>
+                        
+                        <div className="progress mb-2">
+                            <div 
+                                className="progress-bar progress-bar-striped progress-bar-animated"
+                                role="progressbar"
+                                style={{ width: `${progress.percentage}%` }}
+                            >
+                                {progress.percentage}%
+                            </div>
+                        </div>
+                        
+                        <Typography variant="body2" color="text.secondary">
+                            Processados: {progress.processed} de {progress.total}
+                        </Typography>
+                    </Box>
+                )}
+
+                {/* Loading Spinner */}
+                {importing && !progress && (
+                    <Box sx={{ textAlign: 'center', py: 3 }}>
+                        <Spinner size="lg" color="primary" />
+                        <Typography variant="body2" className="mt-2">
+                            Iniciando importação...
+                        </Typography>
+                    </Box>
+                )}
+
+                {/* Result Section */}
+                {result && !importing && (
+                    <Box sx={{ mt: 3 }}>
+                        <Alert 
+                            variant={result.success > 0 ? 'success' : 'danger'}
+                            className="mb-3"
+                        >
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                {result.success > 0 ? <CheckCircle /> : <Error />}
+                                <strong>
+                                    {result.success > 0 ? 'Importação Concluída!' : 'Importação Falhou'}
+                                </strong>
+                            </Box>
+                            
+                            {result.message && (
+                                <div className="mt-2">
+                                    <strong>Detalhes:</strong> {result.message}
+                                </div>
+                            )}
+                        </Alert>
+
+                        <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                            {result.success > 0 && (
+                                <Chip 
+                                    icon={<CheckCircle />}
+                                    label={`${result.success} imagens processadas`}
+                                    color="success"
+                                />
+                            )}
+                            
+                            {result.errors > 0 && (
+                                <Chip 
+                                    icon={<Error />}
+                                    label={`${result.errors} erros`}
+                                    color="error"
+                                />
+                            )}
+                        </Box>
+
+                        {/* Detalhes dos Processados */}
+                        {result.processed && result.processed.length > 0 && (
+                            <Box sx={{ mt: 2 }}>
+                                <Typography variant="subtitle2" className="mb-1">
+                                    <strong>Imagens Processadas:</strong>
+                                </Typography>
+                                <Box sx={{ maxHeight: '200px', overflow: 'auto', p: 1, backgroundColor: '#f8f9fa' }}>
+                                    {result.processed.slice(0, 10).map((item, index) => (
+                                        <Typography key={index} variant="caption" display="block">
+                                            {item.skipped ? (
+                                                <span style={{ color: '#ff9800' }}>
+                                                    ⚠️ {item.ref}: {item.skipped ? 'Ignorado - ' : ''}{item.error}
+                                                </span>
+                                            ) : (
+                                                <span style={{ color: '#4caf50' }}>
+                                                    ✅ {item.ref}: Processado{' '}
+                                                    {item.imageUrl ? '(nova imagem)' : '(imagem atual)'}
+                                                </span>
+                                            )}
+                                        </Typography>
+                                    ))}
+                                    {result.processed.length > 10 && (
+                                        <Typography variant="caption" color="text.secondary">
+                                            ... e mais {result.processed.length - 10} itens
+                                        </Typography>
+                                    )}
+                                </Box>
+                            </Box>
+                        )}
+                    </Box>
                 )}
             </Modal.Body>
-            
+
             <Modal.Footer>
-                <Button variant="secondary" onClick={handleClose}>
-                    {results ? 'Fechar' : 'Cancelar'}
-                </Button>
-                {results && (
-                    <Button variant="primary" onClick={handleClose}>
-                        Concluir
+                {!importing ? (
+                    <>
+                        <Button variant="secondary" onClick={handleClose}>
+                            Cancelar
+                        </Button>
+                        
+                        {file && (
+                            <Button variant="primary" onClick={handleImport}>
+                                <CloudUpload className="me-2" />
+                                Importar Imagens
+                            </Button>
+                        )}
+                    </>
+                ) : (
+                    <Button variant="secondary" disabled>
+                        <Spinner size="sm" className=" me-2" />
+                        Importando...
+                    </Button>
+                )}
+                
+                {result && result.processed && result.processed.length > 5 && (
+                    <Button variant="success" onClick={handleDownloadLog}>
+                        📥 Baixar Log
                     </Button>
                 )}
             </Modal.Footer>

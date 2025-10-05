@@ -8,12 +8,13 @@ const FactoryForm = ({
     setFactoryForm, 
     onSubmit, 
     onCancel, 
+    onDelete,
     loading = false 
 }) => {
     if (!show) return null;
 
     return (
-        <Card className="mb-4 shadow-sm">
+        <Card id="factory-form-card" className="mb-4 shadow-sm">
             <Card.Header className="bg-info text-white">
                 <h5 className="mb-0">
                     {editingFactory ? 'Editar Fábrica' : 'Adicionar Nova Fábrica'}
@@ -123,6 +124,17 @@ const FactoryForm = ({
                             <span className="material-icons me-1" style={{fontSize: '18px'}}>cancel</span>
                             Cancelar
                         </Button>
+                        {editingFactory && (
+                            <Button 
+                                type="button" 
+                                variant="danger" 
+                                onClick={() => onDelete(editingFactory.id)}
+                                disabled={loading}
+                            >
+                                <span className="material-icons me-1" style={{fontSize: '18px'}}>delete</span>
+                                Excluir
+                            </Button>
+                        )}
                     </div>
                 </form>
             </Card.Body>
