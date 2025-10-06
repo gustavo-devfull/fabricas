@@ -80,7 +80,7 @@ const QuotesSection = ({
                                         <Card.Header className="bg-primary text-white">
                                             <h6 className="mb-0">
                                                 <span className="material-icons me-2" style={{fontSize: '20px'}}>assessment</span>
-                                                Cotação Selecionada: {quoteImports.find(imp => imp.id === selectedImportId).importName || 'Cotação'}
+                                                Cotação Selecionada: {quoteImports.find(imp => imp.id === selectedImportId).quoteName || quoteImports.find(imp => imp.id === selectedImportId).importName || 'Cotação'}
                                             </h6>
                                         </Card.Header>
                                         <Card.Body>
@@ -110,7 +110,8 @@ const QuotesSection = ({
                                                     </div>
                                                     <div style={{color: '#ffc107', fontSize: '1.4rem', fontWeight: 'bold'}}>
                                                         {quotes.filter(quote => selectedForOrder.includes(quote.id)).reduce((total, quote) => {
-                                                            const cbmTotal = Number(quote.cbmTotal) || Number(quote.cbm) || 0;
+                                                            // Priorizar cbmTotal se existir, senão calcular cbm * ctns
+                                                            const cbmTotal = Number(quote.cbmTotal) || (Number(quote.cbm) || 0) * (Number(quote.ctns) || 0);
                                                             return total + cbmTotal;
                                                         }, 0).toFixed(3).replace('.', ',')} m³
                                                     </div>

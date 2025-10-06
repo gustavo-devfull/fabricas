@@ -23,5 +23,23 @@ export default defineConfig({
         },
       }
     }
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    minify: 'esbuild',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          firebase: ['firebase/app', 'firebase/firestore', 'firebase/auth'],
+          mui: ['@mui/material', '@mui/icons-material'],
+          bootstrap: ['react-bootstrap', 'bootstrap']
+        }
+      }
+    }
+  },
+  define: {
+    global: 'globalThis',
   }
 })

@@ -95,9 +95,54 @@ VITE_FIREBASE_PROJECT_ID=seu-projeto-id
 ## 🚀 Deploy
 
 ### Vercel (Recomendado)
-1. Conecte seu repositório GitHub à Vercel
-2. Configure as variáveis de ambiente
-3. Deploy automático a cada push
+
+#### Configuração Automática
+1. **Conecte o repositório GitHub** à Vercel
+2. **Configure as variáveis de ambiente** no painel do Vercel:
+
+```env
+# Firebase Principal
+VITE_FIREBASE_API_KEY=sua_api_key_do_firebase
+VITE_FIREBASE_AUTH_DOMAIN=seu_projeto.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=seu_projeto_id
+VITE_FIREBASE_STORAGE_BUCKET=seu_projeto.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=seu_sender_id
+VITE_FIREBASE_APP_ID=seu_app_id
+VITE_FIREBASE_MEASUREMENT_ID=seu_measurement_id
+
+# Base Produtos Firebase
+VITE_BASE_PRODUTOS_API_KEY=sua_api_key_base_produtos
+VITE_BASE_PRODUTOS_AUTH_DOMAIN=seu_dominio_base_produtos
+VITE_BASE_PRODUTOS_PROJECT_ID=seu_projeto_base_produtos
+VITE_BASE_PRODUTOS_STORAGE_BUCKET=seu_storage_base_produtos
+VITE_BASE_PRODUTOS_MESSAGING_SENDER_ID=seu_sender_base_produtos
+VITE_BASE_PRODUTOS_APP_ID=seu_app_base_produtos
+
+# Ambiente
+NODE_ENV=production
+```
+
+3. **Deploy automático** a cada push na branch `main`
+
+#### Configuração Manual
+O arquivo `vercel.json` já está configurado com:
+- Framework: Vite
+- Build Command: `npm run build`
+- Output Directory: `dist`
+- SPA Routing: Configurado para React Router
+- CORS Headers: Para APIs externas
+
+#### Comandos para Deploy
+```bash
+# Preparar para deploy
+git add .
+git commit -m "Preparar para deploy no Vercel"
+git push origin main
+
+# Deploy local (opcional)
+npm i -g vercel
+vercel dev
+```
 
 ### Netlify
 1. Conecte o repositório

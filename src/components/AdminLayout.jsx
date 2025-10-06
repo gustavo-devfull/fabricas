@@ -38,6 +38,7 @@ const AdminLayout = () => {
         { to: '/admin/import', label: 'Importar Dados' },
         { to: '/admin/selected-products', label: 'Produtos Selecionados' },
         { to: '/admin/exported-orders', label: 'Pedidos Exportados' },
+        { to: '/admin/containers', label: 'Containers' },
         { to: '/admin/users', label: 'Gerenciar Usuários' },
     ];
 

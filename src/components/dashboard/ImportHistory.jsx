@@ -107,7 +107,11 @@ const ImportHistory = ({
     const calculateTotalCBM = () => {
         return quotes
             .filter(quote => selectedForOrder.includes(quote.id))
-            .reduce((total, quote) => total + (quote.cbmTotal || quote.cbm || 0), 0);
+            .reduce((total, quote) => {
+                // Priorizar cbmTotal se existir, senão calcular cbm * ctns
+                const cbmTotal = quote.cbmTotal || (quote.cbm || 0) * (quote.ctns || 0);
+                return total + cbmTotal;
+            }, 0);
     };
 
     // Função para calcular produtos selecionados e CBM por importação específica
@@ -132,7 +136,11 @@ const ImportHistory = ({
         });
 
         const totalCBMForImport = selectedQuotesInImport.reduce(
-            (total, quote) => total + (quote.cbmTotal || quote.cbm || 0), 
+            (total, quote) => {
+                // Priorizar cbmTotal se existir, senão calcular cbm * ctns
+                const cbmTotal = quote.cbmTotal || (quote.cbm || 0) * (quote.ctns || 0);
+                return total + cbmTotal;
+            }, 
             0
         );
 
@@ -220,6 +228,7 @@ const ImportHistory = ({
                     console.log('✏️ Atualizando documento existente:', docSnapshot.id);
                     await updateDoc(doc(db, 'quoteImports', docSnapshot.id), {
                         importName: newNumber,
+                        quoteName: importData.quoteName || '',
                         updatedAt: serverTimestamp()
                     });
                     console.log('✅ Importação atualizada na coleção quoteImports');
@@ -230,6 +239,7 @@ const ImportHistory = ({
                         factoryId: importData.factoryId,
                         updateDate: importData.id,
                         importName: newNumber,
+                        quoteName: importData.quoteName || '',
                         createdAt: serverTimestamp(),
                         updatedAt: serverTimestamp()
                     });
@@ -528,7 +538,7 @@ const ImportHistory = ({
                                                 onClick={() => handleStartEdit(importData.id, importData.importName || `Importação #${index + 1}`)}
                                                 title="Clique para editar"
                                             >
-                                                {importData.importName || `Importação #${index + 1}`}
+                                                {importData.quoteName || importData.importName || `Importação #${index + 1}`}
                                             </h6>
                                         )}
                                     </div>

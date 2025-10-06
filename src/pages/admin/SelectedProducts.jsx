@@ -41,7 +41,6 @@ const SelectedProducts = () => {
     const [lightboxImageAlt, setLightboxImageAlt] = useState('');
     const [sortByRecent, setSortByRecent] = useState(false);
     const [sortByDataPedido, setSortByDataPedido] = useState(false);
-    const [showExportedQuotes, setShowExportedQuotes] = useState(false);
     const [markedExportedFactories, setMarkedExportedFactories] = useState(new Set());
     // Função para formatar data brasileira
     const formatBrazilianDate = (dateString) => {
@@ -389,17 +388,8 @@ const SelectedProducts = () => {
                     })()
                     : filteredImports;
 
-                // Manter todas as importações mas aplicar transparência às exportadas quando toggle estiver ON
+                // Sempre mostrar todas as importações, mas aplicar transparência às exportadas
                 let finalImports = sortedImports;
-                if (!showExportedQuotes) {
-                    // Quando toggle está OFF, mostrar apenas importações não exportadas
-                    finalImports = sortedImports.filter(importData => 
-                        !importData.selectedProducts.some(product => product.exported === true)
-                    );
-                } else {
-                    // Quando toggle está ON, manter TODAS as importações (ativas E exportadas)
-                    finalImports = sortedImports;
-                }
 
                 return {
                     ...factoryDataItem,
@@ -409,16 +399,7 @@ const SelectedProducts = () => {
                 };
             })
             .filter(factoryDataItem => {
-                // Se toggle ON, mostrar沈ábricas que tenham imports OU produtos exportados
-                if (showExportedQuotes) {
-                    const originalFactory = factoryData.find(f => f.factory.id === factoryDataItem.factory.id);
-                    const hasImports = factoryDataItem.imports.length > 0;
-                    const hasExportedProducts = originalFactory && originalFactory.totalExportedProducts > 0;
-                    
-                    
-                    return hasImports || hasExportedProducts;
-                }
-                // Se toggle OFF, mostrar apenas沈ábricas com imports (produtos ativos)
+                // Sempre mostrar fábricas que tenham imports (ativas ou exportadas)
                 return factoryDataItem.imports.length > 0;
             })
             .sort((a, b) => {
@@ -466,7 +447,7 @@ const SelectedProducts = () => {
                 : (product.ctns || 0) * (product.unitCtn || 1) * (product.unitPrice || 0);
             
             totalAmount += amount;
-            totalCBM += (product.cbmTotal || product.cbm || 0);
+            totalCBM += (product.cbmTotal || (product.cbm || 0) * (product.ctns || 0));
         });
 
         return {
@@ -587,15 +568,25 @@ const SelectedProducts = () => {
                             
                             // Mesclar dados salvos da coleção quoteImports
                             const savedImportData = savedData[importData.id] || {};
+                            
+                            // Se não há quoteName salvo, tentar capturar da primeira cotação
+                            let quoteName = savedImportData.quoteName || importData.quoteName || '';
+                            if (!quoteName && importQuotes.length > 0) {
+                                const firstQuote = importQuotes[0];
+                                if (firstQuote.quoteName) {
+                                    quoteName = firstQuote.quoteName;
+                                }
+                            }
                         
-                        return {
-                            ...importData,
+                            return {
+                                ...importData,
                                 selectedProducts: importQuotes,
                                 exportType: type,
                                 // Incluir dados salvos da coleção quoteImports
                                 dataPedido: savedImportData.dataPedido || '',
                                 lotePedido: savedImportData.lotePedido || '',
-                                importName: savedImportData.importName || importData.importName
+                                importName: savedImportData.importName || importData.importName,
+                                quoteName: quoteName
                             };
                         }).filter(importData => importData !== null);
                     };
@@ -604,12 +595,15 @@ const SelectedProducts = () => {
                     const importsNotExported = groupQuotesByImport(selectedQuotesNotExported, 'not-exported');
                     const importsExported = groupQuotesByImport(selectedQuotesExported, 'exported');
                     
-                    console.log(`🔄 Fábrica ${factory.name || factory.nomeFabrica}: ${importsNotExported.length} importações não exportadas, ${importsExported.length} exportadas`);
+                    // Combinar todas as importações (exportadas e não exportadas) em um único array
+                    const allImports = [...importsNotExported, ...importsExported];
+                    
+                    console.log(`🔄 Fábrica ${factory.name || factory.nomeFabrica}: ${importsNotExported.length} importações não exportadas, ${importsExported.length} exportadas, ${allImports.length} total`);
                     
                     return {
                         factory,
-                        imports: importsNotExported, // Apenas não exportadas por padrão
-                        importsExported: importsExported, // Cotações exportadas separadas
+                        imports: allImports, // Todas as importações (exportadas e não exportadas)
+                        importsExported: importsExported, // Manter separado para referência
                         totalSelectedProducts: selectedQuotesNotExported.length,
                         totalExportedProducts: selectedQuotesExported.length
                     };
@@ -870,10 +864,6 @@ const SelectedProducts = () => {
         }
     };
 
-    // Função para alternar a exibição de cotações exportadas
-    const toggleExportedQuotes = () => {
-        setShowExportedQuotes(!showExportedQuotes);
-    };
 
     // Função para carregar o status de exportação das fábricas
     const loadExportedFactoriesStatus = async () => {
@@ -1079,7 +1069,7 @@ const SelectedProducts = () => {
     // Dados filtrados com useMemo para otimizar performance
     const filteredFactoryData = useMemo(() => {
         return applyFilters(factoryData);
-    }, [factoryData, filters, sortByRecent, sortByDataPedido, showExportedQuotes]);
+    }, [factoryData, filters, sortByRecent, sortByDataPedido]);
 
     const calculateProductAmount = (quote) => {
         const ctns = quote.ctns || 0;
@@ -1093,7 +1083,11 @@ const SelectedProducts = () => {
     };
 
     const calculateImportCBM = (products) => {
-        return products.reduce((total, product) => total + (product.cbmTotal || product.cbm || 0), 0);
+        return products.reduce((total, product) => {
+            // Priorizar cbmTotal se existir, senão calcular cbm * ctns
+            const cbmTotal = product.cbmTotal || (product.cbm || 0) * (product.ctns || 0);
+            return total + cbmTotal;
+        }, 0);
     };
 
     if (loading) {
@@ -1359,44 +1353,6 @@ const SelectedProducts = () => {
                         </Col>
                     </Row>
 
-                    {/* Toggle para Mostrar Cotações Exportadas */}
-                    <Row className="mt-3">
-                        <Col xs={12}>
-                            <div className="d-flex align-items-center justify-content-center">
-                                <FormControlLabel
-                                    control={
-                                        <Switch
-                                            checked={showExportedQuotes}
-                                            onChange={toggleExportedQuotes}
-                                            color="success"
-                                        />
-                                    }
-                                    label={
-                                        <span style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>
-                                            <span className="material-icons me-1" style={{fontSize: '16px', verticalAlign: 'middle'}}>
-                                                {showExportedQuotes ? 'download_done' : 'download_done'}
-                                            </span>
-                                            Mostrar Cotações Exportadas
-                                        </span>
-                                    }
-                                />
-                                <Box sx={{ ml: 2 }}>
-                                    <Chip 
-                                        label={showExportedQuotes ? "ON" : "OFF"} 
-                                        color={showExportedQuotes ? "success" : "default"}
-                                        size="small"
-                                        sx={{ fontWeight: 'bold' }}
-                                    />
-                                </Box>
-                                {showExportedQuotes && (
-                                    <span className="ms-3 small text-muted">
-                                        <span className="material-icons me-1" style={{fontSize: '14px'}}>info</span>
-                                        Cotações exportadas serão exibidas na seção dedicada
-                                    </span>
-                                )}
-                            </div>
-                        </Col>
-                    </Row>
                     
                     {/* Indicador de Resultados */}
                     {filteredFactoryData.length !== factoryData.length && (
@@ -1463,10 +1419,28 @@ const SelectedProducts = () => {
                     // Detectar referências duplicadas para esta fábrica
                     const duplicateReferences = detectDuplicateReferences(factoryDataItem);
                     
-                    // Verificar se a fábrica foi marcada como exportada pelo usuário (quando toggle está ON)
-                    // Usar markedExportedFactories que reflete o estado real do botão "Marcar Exportada"
-                    const isFactoryMarkedAsExported = showExportedQuotes && 
-                        markedExportedFactories.has(factoryDataItem.factory.id);
+                    // Verificar se a fábrica foi marcada como exportada pelo usuário
+                    const isFactoryMarkedAsExported = markedExportedFactories.has(factoryDataItem.factory.id);
+                    
+                    // Verificar se TODAS as cotações desta fábrica estão exportadas
+                    const allQuotesExported = factoryDataItem.imports.every(importData => 
+                        importData.selectedProducts.every(product => product.exported === true)
+                    );
+                    
+                    // Verificar se há pelo menos uma cotação ativa (não exportada)
+                    const hasActiveQuotes = factoryDataItem.imports.some(importData => 
+                        importData.selectedProducts.some(product => product.exported !== true)
+                    );
+                    
+                    // Aplicar transparência apenas se TODAS as cotações estão exportadas
+                    const shouldApplyTransparency = allQuotesExported && !hasActiveQuotes;
+                    
+                    console.log(`🏭 Fábrica ${factoryDataItem.factory.name || factoryDataItem.factory.nomeFabrica}:`, {
+                        allQuotesExported,
+                        hasActiveQuotes,
+                        shouldApplyTransparency,
+                        totalImports: factoryDataItem.imports.length
+                    });
                     
                     
                     return (
@@ -1511,7 +1485,7 @@ const SelectedProducts = () => {
                             )}
                         <Card className="shadow-sm mb-4" style={{ 
                             borderRadius: '12px',
-                            opacity: isFactoryMarkedAsExported ? 0.3 : 1.0,
+                            opacity: shouldApplyTransparency ? 0.3 : 1.0,
                             transition: 'opacity 0.3s ease'
                         }}>
                             <Card.Header 
@@ -1757,17 +1731,21 @@ const SelectedProducts = () => {
                                 ) : (
                                     /* Modo Expandido - Cards das Importações */
                                     <Row className="g-3">
-                                        {factoryDataItem.imports.map((importData, importIndex) => (
-                                        <Col key={importData.id} xs={12} md={6} lg={4}>
-                                            <Card 
-                                                className="h-100 shadow-sm"
-                                                style={{ 
-                                                    borderRadius: '8px',
-                                                    border: '1px solid #e9ecef',
-                                                    background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
-                                                    opacity: isFactoryMarkedAsExported ? 0.3 : 1.0,
-                                                    transition: 'opacity 0.3s ease'
-                                                }}
+                                        {factoryDataItem.imports.map((importData, importIndex) => {
+                                            // Verificar se esta importação específica tem produtos exportados
+                                            const hasExportedProducts = importData.selectedProducts.some(product => product.exported === true);
+                                            
+                                            return (
+                                            <Col key={importData.id} xs={12} md={6} lg={4}>
+                                                <Card 
+                                                    className="h-100 shadow-sm"
+                                                    style={{ 
+                                                        borderRadius: '8px',
+                                                        border: '1px solid #e9ecef',
+                                                        background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+                                                        opacity: hasExportedProducts ? 0.3 : 1.0,
+                                                        transition: 'opacity 0.3s ease'
+                                                    }}
                                             >
                                                 <Card.Header 
                                                     className="py-3"
@@ -1781,7 +1759,7 @@ const SelectedProducts = () => {
                                                         <div className="d-flex align-items-center">
                                                             <h6 className="mb-0 fw-bold me-2">
                                                                 <span className="material-icons me-1" style={{fontSize: '16px'}}>inventory</span>
-                                                                {importData.importName || `Importação #${importIndex + 1}`}
+                                                                {importData.quoteName || importData.importName || `Importação #${importIndex + 1}`}
                                                             </h6>
                                                         </div>
                                                         <Badge 
@@ -1955,7 +1933,7 @@ const SelectedProducts = () => {
                                                                                     style={{ fontSize: '0.7rem' }}
                                                                                 />
                                                                                 <Chip 
-                                                                                    label={`CBM: ${formatNumber(product.cbmTotal || product.cbm, 3)}`} 
+                                                                                    label={`CBM: ${formatNumber(product.cbmTotal || (product.cbm || 0) * (product.ctns || 0), 3)}`} 
                                                                                     size="small" 
                                                                                     color="info" 
                                                                                     variant="outlined"
@@ -2155,7 +2133,8 @@ const SelectedProducts = () => {
                                                 </Card.Body>
                                             </Card>
                                         </Col>
-                                    ))}
+                                            );
+                                        })}
                                         </Row>
                                     )}
                             </Card.Body>

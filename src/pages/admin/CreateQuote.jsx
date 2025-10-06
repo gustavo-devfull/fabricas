@@ -14,10 +14,7 @@ const CreateQuote = () => {
     const [factories, setFactories] = useState([]);
     const [selectedFactory, setSelectedFactory] = useState('');
     const [quoteData, setQuoteData] = useState({
-        importNumber: '',
-        importName: '',
-        remark: '',
-        obs: '',
+        quoteName: '', // Nome da cotação para exibição no dashboard
         excelFile: null
     });
     const [products, setProducts] = useState([]);
@@ -259,6 +256,10 @@ const CreateQuote = () => {
             setError('Selecione uma fábrica');
             return;
         }
+        if (!quoteData.quoteName.trim()) {
+            setError('Informe o nome da cotação');
+            return;
+        }
         if (products.length === 0) {
             setError('Adicione pelo menos um produto');
             return;
@@ -268,6 +269,14 @@ const CreateQuote = () => {
         setError(null);
 
         try {
+            // Calcular valor total da cotação (soma de todos os amounts)
+            const valorTotal = products.reduce((total, product) => {
+                const totals = calculateProductTotals(product);
+                return total + totals.amount;
+            }, 0);
+
+            console.log('💰 Valor total da cotação:', valorTotal);
+
             // Adicionar cada produto diretamente à coleção 'quotes'
             // Cada produto será um documento individual, como esperado pelo sistema
             const productPromises = products.map(product => {
@@ -280,11 +289,14 @@ const CreateQuote = () => {
                 return addDoc(collection(db, 'quotes'), {
                     factoryId: selectedFactory,
                     // Dados da cotação
-                    importNumber: quoteData.importNumber,
-                    importName: quoteData.importName || `Importação #${quoteData.importNumber}`,
+                    quoteName: quoteData.quoteName,
+                    valorTotal: valorTotal, // Valor total da cotação
                     // Dados do produto
                     ...product,
                     ...totals,
+                    // Campos de pedido (inicializados como vazios)
+                    dataPedido: '',
+                    lotePedido: '',
                     createdAt: serverTimestamp(),
                     updatedAt: serverTimestamp(),
                     selectedForOrder: false,
@@ -297,7 +309,7 @@ const CreateQuote = () => {
             console.log('✅ Cotação salva com sucesso!', {
                 factoryId: selectedFactory,
                 productsCount: products.length,
-                importNumber: quoteData.importNumber
+                quoteName: quoteData.quoteName
             });
 
             setSuccess(true);
@@ -375,41 +387,14 @@ const CreateQuote = () => {
                                     ))}
                                 </TextField>
 
-                                {/* Número da Importação */}
+                                {/* Nome da Cotação */}
                                 <TextField
-                                    value={quoteData.importNumber}
-                                    onChange={(e) => handleQuoteDataChange('importNumber', e.target.value)}
+                                    value={quoteData.quoteName}
+                                    onChange={(e) => handleQuoteDataChange('quoteName', e.target.value)}
                                     fullWidth
-                                    placeholder="Número da Importação"
+                                    placeholder="Nome da Cotação"
                                     required
-                                />
-
-                                {/* Nome da Importação */}
-                                <TextField
-                                    value={quoteData.importName}
-                                    onChange={(e) => handleQuoteDataChange('importName', e.target.value)}
-                                    fullWidth
-                                    placeholder="Nome da Importação"
-                                />
-
-                                {/* Remark */}
-                                <TextField
-                                    value={quoteData.remark}
-                                    onChange={(e) => handleQuoteDataChange('remark', e.target.value)}
-                                    fullWidth
-                                    multiline
-                                    rows={2}
-                                    placeholder="Remark"
-                                />
-
-                                {/* OBS */}
-                                <TextField
-                                    value={quoteData.obs}
-                                    onChange={(e) => handleQuoteDataChange('obs', e.target.value)}
-                                    fullWidth
-                                    multiline
-                                    rows={2}
-                                    placeholder="Observações (OBS)"
+                                    helperText="Nome que será exibido no dashboard"
                                 />
 
                                 <Divider />
@@ -748,7 +733,7 @@ const CreateQuote = () => {
                                     color="success"
                                     startIcon={<Save />}
                                     onClick={saveQuote}
-                                    disabled={isSaving || !selectedFactory || products.length === 0}
+                                    disabled={isSaving || !selectedFactory || !quoteData.quoteName.trim() || products.length === 0}
                                     size="small"
                                 >
                                     {isSaving ? 'Salvando...' : 'Salvar Cotação'}

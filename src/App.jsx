@@ -13,6 +13,7 @@ import SelectedProducts from './pages/admin/SelectedProducts';
 import CreateQuote from './pages/admin/CreateQuote';
 import UserProfile from './pages/admin/UserProfile';
 import ExportedOrders from './pages/admin/ExportedOrders';
+import ContainerManagement from './pages/admin/ContainerManagement';
 import Debug from './pages/Debug';
 import FactoryDebug from './pages/FactoryDebug';
 
@@ -43,6 +44,7 @@ function App() {
             <Route path="/admin/selected-products" element={<SelectedProducts />} />
             <Route path="/admin/create-quote" element={<CreateQuote />} />
             <Route path="/admin/exported-orders" element={<ExportedOrders />} />
+            <Route path="/admin/containers" element={<ContainerManagement />} />
         </Route>
         
         {/* Rota para página não encontrada (404) */}

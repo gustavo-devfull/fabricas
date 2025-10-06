@@ -218,6 +218,7 @@ export const getQuoteImportsByFactory = async (factoryId) => {
         const data = doc.data();
         savedImports.set(data.updateDate, {
             importName: data.importName,
+            quoteName: data.quoteName,
             dataPedido: data.dataPedido,
             lotePedido: data.lotePedido
         });
@@ -252,6 +253,7 @@ export const getQuoteImportsByFactory = async (factoryId) => {
                 editable: true,
                 isEditing: false,
                 importName: savedData.importName || '',
+                quoteName: savedData.quoteName || '',
                 dataPedido: savedData.dataPedido || '',
                 lotePedido: savedData.lotePedido || ''
             });
@@ -261,6 +263,11 @@ export const getQuoteImportsByFactory = async (factoryId) => {
         importData.count += 1;
         importData.totalValue += quote.amount || 0;
         importData.quotes.push(quote);
+        
+        // Se não há quoteName salvo e esta cotação tem quoteName, usar o da cotação
+        if (!importData.quoteName && quote.quoteName) {
+            importData.quoteName = quote.quoteName;
+        }
     });
     
     // Converter para array e ordenar por data/hora (mais recente primeiro)
