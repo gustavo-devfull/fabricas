@@ -359,7 +359,7 @@ const SelectedProducts = () => {
                     if (filters.buscaGeral) {
                         const searchTerm = filters.buscaGeral.toLowerCase();
                         const hasMatch = 
-                            (factoryDataItem.factory.name || factoryDataItem.factory.nomeFabrica)?.toLowerCase().includes(searchTerm) ||
+                            (factoryDataItem.factory.name)?.toLowerCase().includes(searchTerm) ||
                             factoryDataItem.factory.localizacao?.toLowerCase().includes(searchTerm) ||
                             importData.dataPedido?.toLowerCase().includes(searchTerm) ||
                             importData.lotePedido?.toLowerCase().includes(searchTerm) ||
@@ -519,7 +519,7 @@ const SelectedProducts = () => {
                     // Carregar dados salvos da coleção quoteImports
                     const savedData = await loadSavedImportData(factory.id);
                     
-                    console.log(`🔍 Fábrica ${factory.name || factory.nomeFabrica}:`);
+                    console.log(`🔍 Fábrica ${factory.name}:`);
                     console.log(`  📊 Total de cotações: ${quotes.length}`);
                     console.log(`  📦 Total de importações: ${imports.length}`);
                     
@@ -598,7 +598,7 @@ const SelectedProducts = () => {
                     // Combinar todas as importações (exportadas e não exportadas) em um único array
                     const allImports = [...importsNotExported, ...importsExported];
                     
-                    console.log(`🔄 Fábrica ${factory.name || factory.nomeFabrica}: ${importsNotExported.length} importações não exportadas, ${importsExported.length} exportadas, ${allImports.length} total`);
+                    console.log(`🔄 Fábrica ${factory.name}: ${importsNotExported.length} importações não exportadas, ${importsExported.length} exportadas, ${allImports.length} total`);
                     
                     return {
                         factory,
@@ -608,7 +608,7 @@ const SelectedProducts = () => {
                         totalExportedProducts: selectedQuotesExported.length
                     };
                 } catch (err) {
-                    console.error(`Erro ao carregar dados da fábrica ${factory.nomeFabrica}:`, err);
+                    console.error(`Erro ao carregar dados da fábrica ${factory.name}:`, err);
                     return {
                         factory,
                         imports: [],
@@ -622,7 +622,7 @@ const SelectedProducts = () => {
             // Debug: Log detalhado das fábricas encontradas
             console.log('🔍 Debug - Fábricas encontradas:');
             factoryDataResults.forEach((data, index) => {
-                console.log(`  ${index + 1}. ${data.factory.name || data.factory.nomeFabrica}:`);
+                console.log(`  ${index + 1}. ${data.factory.name}:`);
                 console.log(`     - totalSelectedProducts: ${data.totalSelectedProducts}`);
                 console.log(`     - totalExportedProducts: ${data.totalExportedProducts}`);
                 console.log(`     - imports.length: ${data.imports.length}`);
@@ -704,7 +704,7 @@ const SelectedProducts = () => {
     const toggleFactoryExportStatus = async (factoryDataItem) => {
         try {
             console.log('🚀 toggleFactoryExportStatus chamada!');
-            console.log('🏭 Fábrica:', factoryDataItem.factory.name || factoryDataItem.factory.nomeFabrica);
+            console.log('🏭 Fábrica:', factoryDataItem.factory.name);
             console.log('🆔 ID:', factoryDataItem.factory.id);
             console.log('📊 markedExportedFactories atual:', Array.from(markedExportedFactories));
             
@@ -713,7 +713,7 @@ const SelectedProducts = () => {
             
             if (isCurrentlyExported) {
                 // Se está exportada, vamos desmarcar
-                console.log('🔄 Desmarcando fábrica como exportada:', factoryDataItem.factory.name || factoryDataItem.factory.nomeFabrica);
+                console.log('🔄 Desmarcando fábrica como exportada:', factoryDataItem.factory.name);
                 
                 // Coletar todos os IDs das cotações desta fábrica
                 const allQuoteIds = [];
@@ -782,13 +782,13 @@ const SelectedProducts = () => {
                 await loadData();
 
                 showAlert('success', 'Sucesso!', 
-                    `${allQuoteIds.length} cotações da fábrica "${factoryDataItem.factory.name || factoryDataItem.factory.nomeFabrica}" foram desmarcadas como exportadas. Dados dos campos preservados.`);
+                    `${allQuoteIds.length} cotações da fábrica "${factoryDataItem.factory.name}" foram desmarcadas como exportadas. Dados dos campos preservados.`);
                 
                 console.log(`✅ ${allQuoteIds.length} cotações desmarcadas como exportadas com sucesso`);
 
             } else {
                 // Se não está exportada, vamos marcar
-                console.log('🏷️ Marcando fábrica como exportada:', factoryDataItem.factory.name || factoryDataItem.factory.nomeFabrica);
+                console.log('🏷️ Marcando fábrica como exportada:', factoryDataItem.factory.name);
                 
                 // Coletar todos os IDs das cotações desta fábrica
                 const allQuoteIds = [];
@@ -853,7 +853,7 @@ const SelectedProducts = () => {
                 await loadData();
 
                 showAlert('success', 'Sucesso!', 
-                    `${allQuoteIds.length} cotações da fábrica "${factoryDataItem.factory.name || factoryDataItem.factory.nomeFabrica}" foram marcadas como exportadas. Dados dos campos preservados.`);
+                    `${allQuoteIds.length} cotações da fábrica "${factoryDataItem.factory.name}" foram marcadas como exportadas. Dados dos campos preservados.`);
                 
                 console.log(`✅ ${allQuoteIds.length} cotações marcadas como exportadas com sucesso`);
             }
@@ -875,7 +875,7 @@ const SelectedProducts = () => {
             
             // Verificar todas as fábricas na lista atual
             for (const factoryDataItem of factoryData) {
-                console.log(`🔍 Verificando fábrica: ${factoryDataItem.factory.name || factoryDataItem.factory.nomeFabrica}`);
+                console.log(`🔍 Verificando fábrica: ${factoryDataItem.factory.name}`);
                 let allQuotesExported = true;
                 let hasAnyQuote = false;
                 let exportedCount = 0;
@@ -901,14 +901,14 @@ const SelectedProducts = () => {
                     if (!allQuotesExported) break;
                 }
                 
-                console.log(`📈 Fábrica ${factoryDataItem.factory.name || factoryDataItem.factory.nomeFabrica}: ${exportedCount}/${totalCount} produtos exportados`);
+                console.log(`📈 Fábrica ${factoryDataItem.factory.name}: ${exportedCount}/${totalCount} produtos exportados`);
                 
                 // Se tem produtos e todos estão exportados, marcar fábrica como exportada
                 if (hasAnyQuote && allQuotesExported && exportedCount > 0) {
                     exportedFactoryIds.add(factoryDataItem.factory.id);
-                    console.log(`✅ Fábrica ${factoryDataItem.factory.name || factoryDataItem.factory.nomeFabrica} marcada como exportada`);
+                    console.log(`✅ Fábrica ${factoryDataItem.factory.name} marcada como exportada`);
                 } else {
-                    console.log(`❌ Fábrica ${factoryDataItem.factory.name || factoryDataItem.factory.nomeFabrica} não será marcada como exportada`);
+                    console.log(`❌ Fábrica ${factoryDataItem.factory.name} não será marcada como exportada`);
                 }
             }
             
@@ -972,7 +972,7 @@ const SelectedProducts = () => {
                                 allProducts.push({
                                     ref: product.ref.trim(),
                                     factoryId: factoryDataItem.factory.id,
-                                    factoryName: factoryDataItem.factory.name || factoryDataItem.factory.nomeFabrica,
+                                    factoryName: factoryDataItem.factory.name,
                                     importId: importData.id,
                                     importName: importData.importName || `Importação ${importData.id}`,
                                     dataPedido: importData.dataPedido,
@@ -1435,7 +1435,7 @@ const SelectedProducts = () => {
                     // Aplicar transparência apenas se TODAS as cotações estão exportadas
                     const shouldApplyTransparency = allQuotesExported && !hasActiveQuotes;
                     
-                    console.log(`🏭 Fábrica ${factoryDataItem.factory.name || factoryDataItem.factory.nomeFabrica}:`, {
+                    console.log(`🏭 Fábrica ${factoryDataItem.factory.name}:`, {
                         allQuotesExported,
                         hasActiveQuotes,
                         shouldApplyTransparency,
@@ -1453,7 +1453,7 @@ const SelectedProducts = () => {
                                         Referências Duplicadas Encontradas
                                     </Alert.Heading>
                                     <p className="mb-2">
-                                        A fábrica <strong>{factoryDataItem.factory.name || factoryDataItem.factory.nomeFabrica}</strong> possui produtos 
+                                        A fábrica <strong>{factoryDataItem.factory.name}</strong> possui produtos 
                                         com referências duplicadas em diferentes importações:
                                     </p>
                                     {duplicateReferences.map((duplicate, index) => (
@@ -1504,7 +1504,7 @@ const SelectedProducts = () => {
                                     <div className="d-flex align-items-center">
                                         <h5 className="mb-1 fw-bold me-3">
                                             <span className="material-icons me-2" style={{fontSize: '20px'}}>factory</span>
-                                            {factoryDataItem.factory.name || factoryDataItem.factory.nomeFabrica}
+                                            {factoryDataItem.factory.name}
                                         </h5>
                                     </div>
                                     <div className="text-start">
@@ -1540,7 +1540,7 @@ const SelectedProducts = () => {
                                             size="sm"
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                console.log('🔄 Botão clicado para fábrica:', factoryDataItem.factory.name || factoryDataItem.factory.nomeFabrica);
+                                                console.log('🔄 Botão clicado para fábrica:', factoryDataItem.factory.name);
                                                 toggleFactoryExportStatus(factoryDataItem);
                                             }}
                                             style={{ 

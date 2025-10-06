@@ -28,8 +28,8 @@ const FactoryForm = ({
                             <input
                                 type="text"
                                 className="form-control"
-                                value={factoryForm.nomeFabrica}
-                                onChange={(e) => setFactoryForm({...factoryForm, nomeFabrica: e.target.value})}
+                                value={factoryForm.name}
+                                onChange={(e) => setFactoryForm({...factoryForm, name: e.target.value})}
                                 required
                             />
                         </Col>

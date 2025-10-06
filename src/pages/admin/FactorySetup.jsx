@@ -9,7 +9,7 @@ import {
 const FactorySetup = () => {
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
-        nomeFabrica: '',
+        name: '',
         localizacao: '',
         segmento: '',
         nomeContato: '',
@@ -98,8 +98,8 @@ const FactorySetup = () => {
                         <Row className="mb-3 g-3">
                             <FormGroup 
                                 label="Nome da Fábrica" 
-                                name="nomeFabrica" 
-                                value={formData.nomeFabrica} 
+                                name="name" 
+                                value={formData.name} 
                                 onChange={handleChange} 
                                 required 
                             />

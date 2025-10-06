@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Container, Row, Col, Card, Button, Alert, Spinner, Modal } from 'react-bootstrap';
 import { Box, Typography, TextField, IconButton, Tooltip, Fab } from '@mui/material';
 import { Add, Edit, Delete, Save, Close, LocalShipping } from '@mui/icons-material';
@@ -34,6 +34,53 @@ const ContainerManagement = () => {
     const [selectedQuote, setSelectedQuote] = useState(null);
     const [quoteProducts, setQuoteProducts] = useState([]);
     const [loadingProducts, setLoadingProducts] = useState(false);
+    
+    // Estados para sistema de documentos
+    const [containerDocuments, setContainerDocuments] = useState({});
+    const [newDocument, setNewDocument] = useState('');
+    const [documentImage, setDocumentImage] = useState(null);
+    const [documentFile, setDocumentFile] = useState(null);
+    const [uploadingDocumentImage, setUploadingDocumentImage] = useState(false);
+    const [documentingContainer, setDocumentingContainer] = useState(null);
+    const [showDocumentLightbox, setShowDocumentLightbox] = useState(false);
+    const [lightboxImageUrl, setLightboxImageUrl] = useState('');
+    const [lightboxImageAlt, setLightboxImageAlt] = useState('');
+
+    // Estados para sistema de status
+    const [statusFilter, setStatusFilter] = useState(''); // Filtro por status
+
+    // Opções de status para os containers
+    const statusOptions = [
+        { value: '', label: 'Todos os Status' },
+        { value: 'fabricacao', label: 'Fabricação' },
+        { value: 'embarcado', label: 'Embarcado' },
+        { value: 'em_liberacao', label: 'Em liberação' },
+        { value: 'nacionalizado', label: 'Nacionalizado' }
+    ];
+
+    // Função para obter informações do status
+    const getStatusInfo = (status) => {
+        const statusMap = {
+            'fabricacao': { label: 'Fabricação', color: '#ffffff', bgColor: '#808000' },
+            'embarcado': { label: 'Embarcado', color: '#ffffff', bgColor: '#800000' },
+            'em_liberacao': { label: 'Em liberação', color: '#ffffff', bgColor: '#800080' },
+            'nacionalizado': { label: 'Nacionalizado', color: '#ffffff', bgColor: '#008000' }
+        };
+        
+        return statusMap[status] || { label: 'Escolha o status', color: '#ff0000', bgColor: '#ffffff' };
+    };
+
+    // Função para obter cor do header baseada no status
+    const getHeaderColor = (status) => {
+        const statusMap = {
+            'fabricacao': '#808000', // Verde oliva
+            'embarcado': '#800000', // Vermelho escuro
+            'em_liberacao': '#800080', // Roxo
+            'nacionalizado': '#008000' // Verde
+        };
+        
+        return statusMap[status] || '#3498db'; // Azul padrão
+    };
 
     // Função para calcular o valor de um produto (mesma lógica da tela de produtos selecionados)
     const calculateProductAmount = (quote) => {
@@ -55,6 +102,283 @@ const ContainerManagement = () => {
         return formatted;
     };
 
+    // Funções para sistema de documentos
+    const compressImage = async (file, maxWidth = 600, quality = 0.7) => {
+        return new Promise((resolve) => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            
+            img.onload = () => {
+                const ratio = Math.min(maxWidth / img.width, maxWidth / img.height);
+                canvas.width = img.width * ratio;
+                canvas.height = img.height * ratio;
+                
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                
+                canvas.toBlob(resolve, 'image/jpeg', quality);
+            };
+            
+            img.src = URL.createObjectURL(file);
+        });
+    };
+
+    const fileToBase64 = (file) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
+    };
+
+    // Função para adicionar documento no container
+    const handleAddDocument = async (containerId) => {
+        if (!newDocument.trim() && !documentImage && !documentFile) return;
+
+        try {
+            let imageUrl = null;
+            let documentUrl = null;
+            let documentType = null;
+            let documentName = null;
+            
+            // Processar imagem se existir
+            if (documentImage) {
+                setUploadingDocumentImage(true);
+                console.log('🔄 Comprimindo imagem...');
+                
+                // Comprimir imagem antes de converter para base64
+                const compressedBlob = await compressImage(documentImage, 600, 0.7);
+                console.log(`📊 Imagem comprimida: ${compressedBlob.size} bytes (original: ${documentImage.size} bytes)`);
+                
+                // Converter blob comprimido para base64
+                const base64 = await fileToBase64(compressedBlob);
+                imageUrl = base64;
+                
+                console.log('✅ Imagem comprimida e convertida para base64');
+            }
+            
+            // Processar documento se existir
+            if (documentFile) {
+                console.log('🔄 Convertendo documento para base64...');
+                
+                // Para documentos, converter diretamente para base64
+                const base64 = await fileToBase64(documentFile);
+                documentUrl = base64;
+                documentType = documentFile.type;
+                documentName = documentFile.name;
+                
+                console.log(`✅ Documento ${documentName} convertido para base64`);
+            }
+
+            const documentData = {
+                containerId,
+                document: newDocument.trim(),
+                userName: 'Usuário', // Você pode integrar com sistema de auth se necessário
+                createdAt: serverTimestamp(),
+                userId: 'unknown', // Você pode integrar com sistema de auth se necessário
+                imageUrl: imageUrl,
+                documentUrl: documentUrl,
+                documentType: documentType,
+                documentName: documentName
+            };
+
+            // Salvar no Firestore
+            const docRef = await addDoc(collection(db, 'containerDocuments'), documentData);
+            console.log('✅ Documento salvo com ID:', docRef.id);
+            
+            // Atualizar estado local com o ID real do documento
+            setContainerDocuments(prev => ({
+                ...prev,
+                [containerId]: [
+                    {
+                        id: docRef.id, // ID real do Firestore
+                        ...documentData,
+                        createdAt: new Date() // Para exibição imediata
+                    },
+                    ...(prev[containerId] || [])
+                ]
+            }));
+            
+            // Recarregar documentos para garantir sincronização
+            await loadAllContainerDocuments();
+
+            setNewDocument('');
+            setDocumentImage(null);
+            setDocumentFile(null);
+            setDocumentingContainer(null);
+            setUploadingDocumentImage(false);
+            console.log('✅ Documento adicionado com sucesso');
+        } catch (error) {
+            console.error('❌ Erro ao adicionar documento:', error);
+            setUploadingDocumentImage(false);
+            
+            if (error.message.includes('longer than 1048487 bytes')) {
+                alert('A imagem é muito grande mesmo após compressão. Tente uma imagem menor ou com menor qualidade.');
+            } else {
+                alert('Erro ao salvar documento. Tente novamente.');
+            }
+        }
+    };
+
+    // Função para lidar com upload de imagem
+    const handleImageUpload = (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            // Validar tipo de arquivo (apenas imagens)
+            const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+            
+            if (!allowedImageTypes.includes(file.type)) {
+                alert('Por favor, selecione apenas arquivos de imagem (JPG, PNG, GIF, WEBP).');
+                return;
+            }
+            
+            // Validar tamanho (máximo 2MB antes da compressão)
+            if (file.size > 2 * 1024 * 1024) {
+                alert('A imagem deve ter no máximo 2MB. Será comprimida automaticamente.');
+                return;
+            }
+            
+            setDocumentImage(file);
+            console.log('✅ Imagem selecionada:', file.name);
+        }
+    };
+
+    // Função para lidar com upload de documento
+    const handleDocumentUpload = (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            // Tipos de documento aceitos
+            const allowedDocumentTypes = [
+                'application/pdf',
+                'application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'application/vnd.ms-excel',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'application/zip',
+                'application/x-zip-compressed'
+            ];
+            
+            // Validar tipo de arquivo
+            if (!allowedDocumentTypes.includes(file.type)) {
+                alert('Tipo de documento não suportado. Aceitos: PDF, DOC, DOCX, XLS, XLSX, ZIP');
+                return;
+            }
+            
+            // Validar tamanho (máximo 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('O documento deve ter no máximo 5MB.');
+                return;
+            }
+            
+            setDocumentFile(file);
+            console.log('✅ Documento selecionado:', file.name, 'Tipo:', file.type);
+        }
+    };
+
+    // Função para remover imagem selecionada
+    const handleRemoveImage = () => {
+        setDocumentImage(null);
+        // Limpar o input file
+        const fileInput = document.getElementById('image-upload');
+        if (fileInput) {
+            fileInput.value = '';
+        }
+    };
+
+    // Função para remover documento selecionado
+    const handleRemoveDocument = () => {
+        setDocumentFile(null);
+        // Limpar o input file
+        const fileInput = document.getElementById('document-upload');
+        if (fileInput) {
+            fileInput.value = '';
+        }
+    };
+
+    // Função para obter ícone baseado no tipo de arquivo
+    const getFileIcon = (fileType) => {
+        if (!fileType) return 'description';
+        
+        if (fileType.startsWith('image/')) {
+            return 'image';
+        } else if (fileType.includes('pdf')) {
+            return 'picture_as_pdf';
+        } else if (fileType.includes('word') || fileType.includes('document')) {
+            return 'description';
+        } else if (fileType.includes('excel') || fileType.includes('spreadsheet')) {
+            return 'table_chart';
+        } else if (fileType.includes('zip')) {
+            return 'folder_zip';
+        } else {
+            return 'attach_file';
+        }
+    };
+
+    // Função para obter cor baseada no tipo de arquivo
+    const getFileColor = (fileType) => {
+        if (!fileType) return '#6c757d';
+        
+        if (fileType.startsWith('image/')) {
+            return '#28a745';
+        } else if (fileType.includes('pdf')) {
+            return '#dc3545';
+        } else if (fileType.includes('word') || fileType.includes('document')) {
+            return '#007bff';
+        } else if (fileType.includes('excel') || fileType.includes('spreadsheet')) {
+            return '#28a745';
+        } else if (fileType.includes('zip')) {
+            return '#ffc107';
+        } else {
+            return '#6c757d';
+        }
+    };
+
+    // Funções para controlar o lightbox de documentos
+    const handleDocumentImageClick = (imageUrl, imageAlt) => {
+        if (imageUrl) {
+            setLightboxImageUrl(imageUrl);
+            setLightboxImageAlt(imageAlt);
+            setShowDocumentLightbox(true);
+        }
+    };
+
+    const handleCloseDocumentLightbox = () => {
+        setShowDocumentLightbox(false);
+    };
+
+
+    // Função para atualizar status do container
+    const handleStatusChange = async (containerId, newStatus) => {
+        try {
+            console.log(`🔄 Atualizando status do container ${containerId} para: ${newStatus}`);
+            
+            const containerRef = doc(db, 'containers', containerId);
+            await updateDoc(containerRef, {
+                status: newStatus,
+                updatedAt: new Date()
+            });
+            
+            // Atualizar estado local
+            setContainers(prev => prev.map(container => 
+                container.id === containerId 
+                    ? { ...container, status: newStatus }
+                    : container
+            ));
+            
+            console.log(`✅ Status do container ${containerId} atualizado para: ${newStatus}`);
+        } catch (error) {
+            console.error('❌ Erro ao atualizar status do container:', error);
+            alert('Erro ao atualizar status do container. Tente novamente.');
+        }
+    };
+
+    // Função para filtrar containers por status
+    const filterContainersByStatus = (containers, statusFilter) => {
+        if (!statusFilter) return containers;
+        return containers.filter(container => container.status === statusFilter);
+    };
+
     // Funções para modal de produtos da cotação
     const handleOpenQuoteModal = async (quote) => {
         setSelectedQuote(quote);
@@ -71,33 +395,88 @@ const ContainerManagement = () => {
                 containerId: quote.containerId
             });
             
-            // Buscar todos os produtos desta cotação usando os campos corretos
+            // Buscar todos os produtos desta cotação usando múltiplas estratégias
             const quotesRef = collection(db, 'quotes');
-            let q;
+            let products = [];
             
-            // Tentar diferentes estratégias de busca
+            // Estratégia 1: Buscar por quoteName (mais específico)
             if (quote.quoteName) {
-                q = query(quotesRef, where('quoteName', '==', quote.quoteName));
-            } else if (quote.importName) {
-                q = query(quotesRef, where('importName', '==', quote.importName));
-            } else {
-                // Se não tem nome específico, buscar por factoryId e containerId
-                q = query(quotesRef, where('factoryId', '==', quote.factoryId), where('containerId', '==', quote.containerId));
+                console.log(`🔍 Estratégia 1: Buscando por quoteName: "${quote.quoteName}"`);
+                const q1 = query(quotesRef, where('quoteName', '==', quote.quoteName));
+                const snapshot1 = await getDocs(q1);
+                products = snapshot1.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                console.log(`📦 Encontrados ${products.length} produtos por quoteName`);
             }
             
-            const querySnapshot = await getDocs(q);
+            // Estratégia 2: Se não encontrou por quoteName, buscar por importName
+            if (products.length === 0 && quote.importName) {
+                console.log(`🔍 Estratégia 2: Buscando por importName: "${quote.importName}"`);
+                const q2 = query(quotesRef, where('importName', '==', quote.importName));
+                const snapshot2 = await getDocs(q2);
+                products = snapshot2.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                console.log(`📦 Encontrados ${products.length} produtos por importName`);
+            }
             
-            const products = querySnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
+            // Estratégia 3: Se ainda não encontrou, buscar por factoryId e containerId
+            if (products.length === 0 && quote.factoryId && quote.containerId) {
+                console.log(`🔍 Estratégia 3: Buscando por factoryId: "${quote.factoryId}" e containerId: "${quote.containerId}"`);
+                const q3 = query(quotesRef, where('factoryId', '==', quote.factoryId), where('containerId', '==', quote.containerId));
+                const snapshot3 = await getDocs(q3);
+                products = snapshot3.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                console.log(`📦 Encontrados ${products.length} produtos por factoryId + containerId`);
+            }
+            
+            // Estratégia 4: Buscar apenas por factoryId (mais amplo)
+            if (products.length === 0 && quote.factoryId) {
+                console.log(`🔍 Estratégia 4: Buscando apenas por factoryId: "${quote.factoryId}"`);
+                const q4 = query(quotesRef, where('factoryId', '==', quote.factoryId));
+                const snapshot4 = await getDocs(q4);
+                products = snapshot4.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                console.log(`📦 Encontrados ${products.length} produtos por factoryId`);
+            }
+            
+            // Estratégia 5: Buscar por createdAt similar (para cotações criadas no mesmo momento)
+            if (products.length === 0 && quote.createdAt) {
+                console.log(`🔍 Estratégia 5: Buscando por createdAt similar`);
+                const quoteTime = quote.createdAt.toDate ? quote.createdAt.toDate() : new Date(quote.createdAt);
+                const startTime = new Date(quoteTime.getTime() - 60000); // 1 minuto antes
+                const endTime = new Date(quoteTime.getTime() + 60000); // 1 minuto depois
+                
+                const q5 = query(
+                    quotesRef, 
+                    where('createdAt', '>=', startTime),
+                    where('createdAt', '<=', endTime)
+                );
+                const snapshot5 = await getDocs(q5);
+                products = snapshot5.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                console.log(`📦 Encontrados ${products.length} produtos por createdAt similar`);
+            }
+            
+            // Se ainda não encontrou nada, buscar todos os produtos e filtrar manualmente
+            if (products.length === 0) {
+                console.log(`🔍 Estratégia 6: Buscando todos os produtos e filtrando manualmente`);
+                const allQuotesSnapshot = await getDocs(quotesRef);
+                const allProducts = allQuotesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                // Filtrar produtos que podem estar relacionados
+                products = allProducts.filter(product => {
+                    return (
+                        (product.factoryId === quote.factoryId) ||
+                        (product.quoteName === quote.quoteName) ||
+                        (product.importName === quote.importName) ||
+                        (product.containerId === quote.containerId)
+                    );
+                });
+                console.log(`📦 Encontrados ${products.length} produtos por filtro manual`);
+            }
             
             setQuoteProducts(products);
-            console.log(`📦 Carregados ${products.length} produtos para a cotação:`, {
+            console.log(`✅ Total de ${products.length} produtos carregados para a cotação:`, {
                 quoteName: quote.quoteName,
                 importName: quote.importName,
                 factoryId: quote.factoryId,
-                containerId: quote.containerId
+                containerId: quote.containerId,
+                products: products.map(p => ({ id: p.id, ref: p.ref || p.referencia, description: p.description }))
             });
             
         } catch (error) {
@@ -115,7 +494,7 @@ const ContainerManagement = () => {
     };
 
     // Carregar containers do Firebase
-    const loadContainers = async () => {
+    const loadContainers = useCallback(async () => {
         try {
             setLoading(true);
             setError(null);
@@ -135,11 +514,55 @@ const ContainerManagement = () => {
             setContainers(containersData);
             console.log(`✅ ${containersData.length} containers carregados`);
             
+            // Carregar documentos de todos os containers automaticamente
+            await loadAllContainerDocuments();
+            
         } catch (error) {
             console.error('❌ Erro ao carregar containers:', error);
             setError('Erro ao carregar containers: ' + error.message);
         } finally {
             setLoading(false);
+        }
+    }, []);
+
+    // Função para carregar documentos de todos os containers
+    const loadAllContainerDocuments = async () => {
+        try {
+            console.log('🔄 Carregando documentos de todos os containers...');
+            
+            // Carregar todos os documentos de uma vez
+            const documentsRef = collection(db, 'containerDocuments');
+            const documentsSnapshot = await getDocs(documentsRef);
+            
+            const allDocuments = {};
+            documentsSnapshot.forEach(doc => {
+                const documentData = doc.data();
+                const containerId = documentData.containerId;
+                
+                if (!allDocuments[containerId]) {
+                    allDocuments[containerId] = [];
+                }
+                
+                allDocuments[containerId].push({
+                    id: doc.id,
+                    ...documentData
+                });
+            });
+            
+            // Ordenar documentos por data (mais recentes primeiro) para cada container
+            Object.keys(allDocuments).forEach(containerId => {
+                allDocuments[containerId].sort((a, b) => {
+                    const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+                    const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+                    return dateB - dateA;
+                });
+            });
+            
+            setContainerDocuments(allDocuments);
+            console.log(`✅ Documentos carregados para ${Object.keys(allDocuments).length} containers`);
+            
+        } catch (error) {
+            console.error('❌ Erro ao carregar documentos dos containers:', error);
         }
     };
 
@@ -162,7 +585,7 @@ const ContainerManagement = () => {
                 };
                 
                 // Buscar nome da fábrica em múltiplos campos possíveis
-                const factoryName = factoryData.nome || factoryData.name || factoryData.factoryName || factoryData.title;
+                const factoryName = factoryData.name || factoryData.nomeFabrica || factoryData.factoryName || factoryData.title;
                 
                 // Só usar o nome se não for vazio, não for igual ao ID e não for um ID Firebase
                 if (factoryName && factoryName.trim() !== '' && factoryName !== doc.id && !isFirebaseId(factoryName)) {
@@ -211,47 +634,17 @@ const ContainerManagement = () => {
                     description: data.description
                 });
                 
-                // Resolver nome da fábrica - USAR factoryName original dos dados da cotação
+                // Resolver nome da fábrica - USAR MESMO CAMPO DA PÁGINA PRODUTOS SELECIONADOS
                 let factoryName = 'Fábrica não identificada';
                 
-                // Log específico para quote456 (ou qualquer cotação problemática)
-                if (doc.id === 'quote456' || doc.id.includes('456')) {
-                    console.log(`🚨 INVESTIGAÇÃO ESPECÍFICA para ${doc.id}:`);
-                    console.log(`  🔍 data.factoryName:`, data.factoryName, `(tipo: ${typeof data.factoryName})`);
-                    console.log(`  🔍 data.factoryId:`, data.factoryId, `(tipo: ${typeof data.factoryId})`);
-                    console.log(`  🔍 factoriesMap[${data.factoryId}]:`, factoriesMap[data.factoryId]);
-                    console.log(`  🔍 Verificação factoryName:`, {
-                        exists: !!data.factoryName,
-                        isString: typeof data.factoryName === 'string',
-                        notEmpty: data.factoryName && data.factoryName.trim() !== '',
-                        trimmed: data.factoryName ? data.factoryName.trim() : 'N/A'
-                    });
-                }
-                
-                // Estratégia: PRIORIZAR factoryName original dos dados da cotação
-                if (data.factoryName && typeof data.factoryName === 'string' && data.factoryName.trim() !== '') {
-                    // Usar o factoryName original dos dados da cotação (mesmo que seja ID)
-                    factoryName = data.factoryName.trim();
-                    console.log(`  ✅ Usando factoryName original: ${factoryName}`);
-                } else if (data.factoryId && factoriesMap[data.factoryId]) {
-                    // Se não tem factoryName, buscar no mapa de fábricas
+                // Usar o mesmo campo que está sendo usado na página "Produtos Selecionados"
+                // que é factoriesMap[data.factoryId] onde factoriesMap contém os dados carregados por getAllFactories()
+                if (data.factoryId && factoriesMap[data.factoryId]) {
                     factoryName = factoriesMap[data.factoryId];
-                    console.log(`  ✅ Nome da fábrica encontrado no mapa: ${factoryName}`);
+                    console.log(`  ✅ Nome da fábrica encontrado no mapa (mesmo campo da página Produtos Selecionados): ${factoryName}`);
                 } else {
-                    // Como último recurso, usar um nome genérico
-                    factoryName = 'Fábrica não identificada';
-                    console.log(`  ❌ Nenhum nome válido encontrado para factoryId: ${data.factoryId}`);
-                    
-                    // Log adicional para debug
-                    if (doc.id === 'quote456' || doc.id.includes('456')) {
-                        console.log(`  🚨 DEBUG para ${doc.id}:`);
-                        console.log(`    - data.factoryName existe?`, !!data.factoryName);
-                        console.log(`    - data.factoryName é string?`, typeof data.factoryName === 'string');
-                        console.log(`    - data.factoryName não vazio?`, data.factoryName && data.factoryName.trim() !== '');
-                        console.log(`    - data.factoryId existe?`, !!data.factoryId);
-                        console.log(`    - factoriesMap tem ${data.factoryId}?`, !!factoriesMap[data.factoryId]);
-                        console.log(`    - factoriesMap completo:`, factoriesMap);
-                    }
+                    console.log(`  ❌ Fábrica não encontrada no mapa para factoryId: ${data.factoryId}`);
+                    factoryName = `Fábrica ${data.factoryId ? data.factoryId.substring(0, 8) : 'Desconhecida'}`;
                 }
                 
                 // Resolver nome da cotação - priorizar quoteName sobre importName
@@ -300,7 +693,7 @@ const ContainerManagement = () => {
     useEffect(() => {
         loadContainers();
         loadQuotesByContainer();
-    }, []);
+    }, [loadContainers]);
 
     // Função para recarregar dados (útil para debug)
     const reloadData = async () => {
@@ -512,6 +905,29 @@ const ContainerManagement = () => {
                 </Alert>
             )}
 
+            {/* Filtro de Status */}
+            <Row className="mb-4">
+                <Col xs={12} md={4}>
+                    <div className="d-flex align-items-center">
+                        <Typography variant="body2" sx={{ fontWeight: 'bold', marginRight: 2, minWidth: '60px' }}>
+                            Status:
+                        </Typography>
+                        <select 
+                            className="form-select"
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            style={{ maxWidth: '200px' }}
+                        >
+                            {statusOptions.map(option => (
+                                <option key={option.value} value={option.value}>
+                                    {option.label}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                </Col>
+            </Row>
+
             {/* Loading */}
             {loading && (
                 <div className="text-center py-5">
@@ -549,7 +965,7 @@ const ContainerManagement = () => {
                         </Card>
                     ) : (
                         <Row className="g-4">
-                            {containers.map((container) => (
+                            {filterContainersByStatus(containers, statusFilter).map((container) => (
                                 <Col key={container.id} xs={12} sm={6} md={4} lg={3}>
                                     <Card 
                                         className="h-100 shadow-sm"
@@ -569,7 +985,7 @@ const ContainerManagement = () => {
                                     >
                                         <Card.Header 
                                             style={{ 
-                                                backgroundColor: '#3498db',
+                                                backgroundColor: getHeaderColor(container.status),
                                                 color: 'white',
                                                 borderRadius: '12px 12px 0 0',
                                                 border: 'none'
@@ -600,6 +1016,30 @@ const ContainerManagement = () => {
                                                         ) : null;
                                                     })()}
                                                 </div>
+                                                
+                                                {/* Tag de Status */}
+                                                <div className="d-flex justify-content-center mb-2">
+                                                    {(() => {
+                                                        const statusInfo = getStatusInfo(container.status);
+                                                        return (
+                                                            <span 
+                                                                className="badge"
+                                                                style={{ 
+                                                                    backgroundColor: statusInfo.bgColor, 
+                                                                    color: statusInfo.color,
+                                                                    fontWeight: 'bold',
+                                                                    borderRadius: '3px',
+                                                                    border: `1px solid ${statusInfo.bgColor}`,
+                                                                    fontSize: '0.75rem',
+                                                                    padding: '4px 8px'
+                                                                }}
+                                                            >
+                                                                {statusInfo.label}
+                                                            </span>
+                                                        );
+                                                    })()}
+                                                </div>
+                                                
                                                 <div className="d-flex gap-1">
                                                     <Tooltip title="Editar">
                                                         <IconButton
@@ -671,6 +1111,28 @@ const ContainerManagement = () => {
                                                             
                                                         </div>
                                                         
+                                                        {/* Seletor de Status */}
+                                                        <div className="mb-3">
+                                                            <div className="d-flex align-items-center justify-content-center">
+                                                                <Typography variant="body2" sx={{ fontWeight: 'bold', marginRight: 2, fontSize: '0.8rem' }}>
+                                                                    Status:
+                                                                </Typography>
+                                                                <select 
+                                                                    className="form-select form-select-sm"
+                                                                    style={{ maxWidth: '150px', fontSize: '0.8rem' }}
+                                                                    value={container.status || ''}
+                                                                    onChange={(e) => handleStatusChange(container.id, e.target.value)}
+                                                                >
+                                                                    <option value="">Selecionar</option>
+                                                                    {statusOptions.slice(1).map(option => (
+                                                                        <option key={option.value} value={option.value}>
+                                                                            {option.label}
+                                                                        </option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                        </div>
+                                                        
                                                         {/* Cotações Associadas */}
                                                         <div className="mb-3">
                                                             <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: '#2c3e50', mb: 2 }}>
@@ -685,10 +1147,10 @@ const ContainerManagement = () => {
                                                                     {associatedQuotes.map((quote, index) => (
                                                                         <div 
                                                                             key={quote.id} 
-                                                                            className="mb-2 p-2" 
+                                                                            className="mb-3 p-3" 
                                                                             style={{ 
                                                                                 backgroundColor: '#f8f9fa', 
-                                                                                borderRadius: '6px',
+                                                                                borderRadius: '8px',
                                                                                 border: '1px solid #e9ecef',
                                                                                 cursor: 'pointer',
                                                                                 transition: 'all 0.2s ease'
@@ -705,31 +1167,302 @@ const ContainerManagement = () => {
                                                                                 e.target.style.boxShadow = 'none';
                                                                             }}
                                                                         >
-                                                                            <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#2c3e50', mb: 1 }}>
-                                                                                {quote.factoryName || 'Fábrica não identificada'}
-                                                                            </Typography>
-                                                                            <div className="row">
-                                                                                <div className="col-12">
-                                                                                    <Typography variant="caption" sx={{ color: '#7f8c8d', wordWrap: 'break-word' }}>
-                                                                                        {quote.quoteName || quote.importName || `Cotação ${index + 1}`}
-                                                                                    </Typography>
-                                                                                </div>
+                                                                            {/* Nome da Cotação */}
+                                                                            <div className="mb-1">
+                                                                                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: '#2c3e50', fontSize: '0.95rem' }}>
+                                                                                    {quote.quoteName || quote.importName || `Cotação ${index + 1}`}
+                                                                                </Typography>
                                                                             </div>
-                                                                            <div className="row mt-1">
+                                                                            
+                                                                            {/* Nome da Fábrica */}
+                                                                            <div className="mb-2">
+                                                                                <Typography variant="body2" sx={{ color: '#34495e', fontSize: '0.8rem', fontWeight: '500' }}>
+                                                                                    <span className="material-icons me-1" style={{fontSize: '12px', verticalAlign: 'middle', color: '#7f8c8d'}}>business</span>
+                                                                                    {quote.factoryName || 'Fábrica não identificada'}
+                                                                                </Typography>
+                                                                            </div>
+                                                                            
+                                                                            {/* Valor Total e CBM Total - lado a lado */}
+                                                                            <div className="row">
                                                                                 <div className="col-6">
-                                                                                    <Typography variant="caption" sx={{ color: '#e74c3c', fontWeight: 'bold' }}>
-                                                                                        Valor: ¥ {formatBrazilianNumber(calculateProductAmount(quote), 2)}
-                                                                                    </Typography>
+                                                                                    <div className="d-flex align-items-center">
+                                                                                        <span className="material-icons me-1" style={{fontSize: '16px', color: '#e74c3c'}}>attach_money</span>
+                                                                                        <Typography variant="body2" sx={{ color: '#e74c3c', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                                                                                            ¥ {formatBrazilianNumber(calculateProductAmount(quote), 2)}
+                                                                                        </Typography>
+                                                                                    </div>
                                                                                 </div>
                                                                                 <div className="col-6">
-                                                                                    <Typography variant="caption" sx={{ color: '#27ae60', fontWeight: 'bold' }}>
-                                                                                        CBM: {formatBrazilianNumber((quote.cbm || 0) * (quote.ctns || 0), 3)} m³
-                                                                                    </Typography>
+                                                                                    <div className="d-flex align-items-center">
+                                                                                        <span className="material-icons me-1" style={{fontSize: '16px', color: '#27ae60'}}>inventory</span>
+                                                                                        <Typography variant="body2" sx={{ color: '#27ae60', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                                                                                            {formatBrazilianNumber((quote.cbm || 0) * (quote.ctns || 0), 3)} m³
+                                                                                        </Typography>
+                                                                                    </div>
                                                                                 </div>
                                                                             </div>
                                                                         </div>
                                                                     ))}
                                                                 </div>
+                                                            )}
+                                                        </div>
+                                                        
+                                                        {/* Seção de Documentos */}
+                                                        <div className="mt-3">
+                                                            <Typography variant="subtitle2" className="mb-2 fw-bold" style={{ color: 'black' }}>
+                                                                <span className="material-icons me-1" style={{fontSize: '16px'}}>description</span>
+                                                                Documentos do Container:
+                                                            </Typography>
+                                                            
+                                                            {/* Lista de documentos existentes */}
+                                                            <div className="mb-3" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                                                                {(() => {
+                                                                    const documents = containerDocuments[container.id] || [];
+                                                                    return documents.length > 0 ? (
+                                                                        documents.map((document, docIndex) => (
+                                                                            <div 
+                                                                                key={document.id || docIndex}
+                                                                                className="p-2 mb-2 rounded border"
+                                                                                style={{ 
+                                                                                    backgroundColor: '#f8f9fa',
+                                                                                    border: '1px solid #e9ecef'
+                                                                                }}
+                                                                            >
+                                                                                <div className="d-flex justify-content-between align-items-start">
+                                                                                    <div className="flex-grow-1">
+                                                                                        <div className="d-flex align-items-center mb-1">
+                                                                                            <span className="material-icons me-1" style={{fontSize: '14px', color: '#6c757d'}}>person</span>
+                                                                                            <small className="text-muted fw-bold">{document.userName}</small>
+                                                                                            <span className="mx-2 text-muted">•</span>
+                                                                                            <small className="text-muted">
+                                                                                                {document.createdAt?.toDate ? 
+                                                                                                    document.createdAt.toDate().toLocaleDateString('pt-BR') + ' ' + document.createdAt.toDate().toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'}) :
+                                                                                                    new Date(document.createdAt).toLocaleDateString('pt-BR') + ' ' + new Date(document.createdAt).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})
+                                                                                                }
+                                                                                            </small>
+                                                                                        </div>
+                                                                                        {document.document && (
+                                                                                            <div className="mb-2">
+                                                                                                <Typography variant="body2" style={{ fontSize: '0.9rem', lineHeight: '1.4' }}>
+                                                                                                    {document.document}
+                                                                                                </Typography>
+                                                                                            </div>
+                                                                                        )}
+                                                                                        {document.imageUrl && (
+                                                                                            <div className="mt-2">
+                                                                                                <img 
+                                                                                                    src={document.imageUrl} 
+                                                                                                    alt="Imagem anexada"
+                                                                                                    style={{ 
+                                                                                                        maxWidth: '200px', 
+                                                                                                        maxHeight: '150px', 
+                                                                                                        cursor: 'pointer',
+                                                                                                        borderRadius: '4px',
+                                                                                                        border: '1px solid #dee2e6'
+                                                                                                    }}
+                                                                                                    onClick={() => handleDocumentImageClick(document.imageUrl, 'Imagem anexada')}
+                                                                                                    className="img-fluid"
+                                                                                                />
+                                                                                            </div>
+                                                                                        )}
+                                                                                        
+                                                                                        {document.documentUrl && (
+                                                                                            <div className="mt-2">
+                                                                                                <div 
+                                                                                                    className="d-flex align-items-center p-2 rounded border"
+                                                                                                    style={{ 
+                                                                                                        backgroundColor: '#ffffff',
+                                                                                                        border: '1px solid #dee2e6',
+                                                                                                        cursor: 'pointer',
+                                                                                                        maxWidth: '200px'
+                                                                                                    }}
+                                                                                                    onClick={() => {
+                                                                                                        // Para documentos, criar link de download
+                                                                                                        const link = document.createElement('a');
+                                                                                                        link.href = document.documentUrl;
+                                                                                                        link.download = document.documentName || 'documento';
+                                                                                                        link.click();
+                                                                                                    }}
+                                                                                                >
+                                                                                                    <span 
+                                                                                                        className="material-icons me-2" 
+                                                                                                        style={{
+                                                                                                            fontSize: '24px',
+                                                                                                            color: getFileColor(document.documentType)
+                                                                                                        }}
+                                                                                                    >
+                                                                                                        {getFileIcon(document.documentType)}
+                                                                                                    </span>
+                                                                                                    <div className="flex-grow-1">
+                                                                                                        <div className="fw-bold" style={{ fontSize: '0.8rem', color: '#495057' }}>
+                                                                                                            {document.documentName || 'Documento'}
+                                                                                                        </div>
+                                                                                                        <div className="text-muted" style={{ fontSize: '0.7rem' }}>
+                                                                                                            Clique para baixar
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        ))
+                                                                    ) : (
+                                                                        <div className="text-center text-muted py-3" style={{ fontSize: '0.9rem' }}>
+                                                                            <span className="material-icons me-2" style={{fontSize: '18px', verticalAlign: 'middle'}}>description</span>
+                                                                            Nenhum documento adicionado ainda
+                                                                        </div>
+                                                                    );
+                                                                })()}
+                                                            </div>
+                                                            
+                                                            {/* Campo para adicionar novo documento */}
+                                                            {documentingContainer === container.id ? (
+                                                                <div className="p-3 rounded border" style={{ backgroundColor: '#f8f9fa', border: '1px solid #e9ecef' }}>
+                                                                    <div className="mb-3">
+                                                                        <label className="fw-bold" style={{ fontSize: '0.9rem' }}>
+                                                                            Adicionar Documento:
+                                                                        </label>
+                                                                        <textarea
+                                                                            className="form-control"
+                                                                            rows={3}
+                                                                            value={newDocument}
+                                                                            onChange={(e) => setNewDocument(e.target.value)}
+                                                                            placeholder="Digite o documento aqui..."
+                                                                            style={{ fontSize: '0.9rem' }}
+                                                                        />
+                                                                    </div>
+                                                                    
+                                                                    {/* Upload de Imagem */}
+                                                                    <div className="mb-3">
+                                                                        <label className="fw-bold" style={{ fontSize: '0.9rem' }}>
+                                                                            Anexar Imagem:
+                                                                        </label>
+                                                                        <div className="d-flex align-items-center gap-2">
+                                                                            <input
+                                                                                type="file"
+                                                                                id="image-upload"
+                                                                                accept="image/*"
+                                                                                onChange={handleImageUpload}
+                                                                                className="form-control form-control-sm"
+                                                                                style={{ fontSize: '0.8rem' }}
+                                                                            />
+                                                                            {documentImage && (
+                                                                                <Button
+                                                                                    variant="outline-danger"
+                                                                                    size="sm"
+                                                                                    onClick={handleRemoveImage}
+                                                                                    style={{ fontSize: '0.8rem' }}
+                                                                                >
+                                                                                    <span className="material-icons me-1" style={{fontSize: '14px'}}>delete</span>
+                                                                                    Remover
+                                                                                </Button>
+                                                                            )}
+                                                                        </div>
+                                                                        {documentImage && (
+                                                                            <div className="mt-2">
+                                                                                <small className="text-success d-flex align-items-center">
+                                                                                    <span className="material-icons me-1" style={{fontSize: '14px'}}>check_circle</span>
+                                                                                    <span className="material-icons me-1" style={{fontSize: '16px', color: '#28a745'}}>image</span>
+                                                                                    {documentImage.name} selecionado
+                                                                                </small>
+                                                                            </div>
+                                                                        )}
+                                                                        <div className="form-text" style={{ fontSize: '0.75rem' }}>
+                                                                            Tipos aceitos: JPG, PNG, GIF, WEBP (máx. 2MB)
+                                                                        </div>
+                                                                    </div>
+                                                                    
+                                                                    {/* Upload de Documento */}
+                                                                    <div className="mb-3">
+                                                                        <label className="fw-bold" style={{ fontSize: '0.9rem' }}>
+                                                                            Anexar Documento:
+                                                                        </label>
+                                                                        <div className="d-flex align-items-center gap-2">
+                                                                            <input
+                                                                                type="file"
+                                                                                id="document-upload"
+                                                                                accept=".pdf,.doc,.docx,.xls,.xlsx,.zip"
+                                                                                onChange={handleDocumentUpload}
+                                                                                className="form-control form-control-sm"
+                                                                                style={{ fontSize: '0.8rem' }}
+                                                                            />
+                                                                            {documentFile && (
+                                                                                <Button
+                                                                                    variant="outline-danger"
+                                                                                    size="sm"
+                                                                                    onClick={handleRemoveDocument}
+                                                                                    style={{ fontSize: '0.8rem' }}
+                                                                                >
+                                                                                    <span className="material-icons me-1" style={{fontSize: '14px'}}>delete</span>
+                                                                                    Remover
+                                                                                </Button>
+                                                                            )}
+                                                                        </div>
+                                                                        {documentFile && (
+                                                                            <div className="mt-2">
+                                                                                <small className="text-success d-flex align-items-center">
+                                                                                    <span className="material-icons me-1" style={{fontSize: '14px'}}>check_circle</span>
+                                                                                    <span className="material-icons me-1" style={{fontSize: '16px', color: getFileColor(documentFile.type)}}>
+                                                                                        {getFileIcon(documentFile.type)}
+                                                                                    </span>
+                                                                                    {documentFile.name} selecionado
+                                                                                </small>
+                                                                            </div>
+                                                                        )}
+                                                                        <div className="form-text" style={{ fontSize: '0.75rem' }}>
+                                                                            Tipos aceitos: PDF, DOC, DOCX, XLS, XLSX, ZIP (máx. 5MB)
+                                                                        </div>
+                                                                    </div>
+                                                                    
+                                                                    <div className="d-flex gap-2">
+                                                                        <Button 
+                                                                            variant="success" 
+                                                                            size="sm"
+                                                                            onClick={() => handleAddDocument(container.id)}
+                                                                            disabled={uploadingDocumentImage || (!newDocument.trim() && !documentImage)}
+                                                                            style={{ fontSize: '0.8rem' }}
+                                                                        >
+                                                                            {uploadingDocumentImage ? (
+                                                                                <>
+                                                                                    <Spinner size="sm" className="me-1" />
+                                                                                    Salvando...
+                                                                                </>
+                                                                            ) : (
+                                                                                <>
+                                                                                    <span className="material-icons me-1" style={{fontSize: '14px'}}>save</span>
+                                                                                    Salvar Documento
+                                                                                </>
+                                                                            )}
+                                                                        </Button>
+                                                                        <Button 
+                                                                            variant="secondary" 
+                                                                            size="sm"
+                                                                            onClick={() => {
+                                                                                setDocumentingContainer(null);
+                                                                                setNewDocument('');
+                                                                                setDocumentImage(null);
+                                                                                setDocumentFile(null);
+                                                                            }}
+                                                                            style={{ fontSize: '0.8rem' }}
+                                                                        >
+                                                                            <span className="material-icons me-1" style={{fontSize: '14px'}}>close</span>
+                                                                            Cancelar
+                                                                        </Button>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <Button 
+                                                                    variant="outline-primary" 
+                                                                    size="sm"
+                                                                    onClick={() => {
+                                                                        setDocumentingContainer(container.id);
+                                                                    }}
+                                                                >
+                                                                    <span className="material-icons me-1" style={{fontSize: '14px'}}>add</span>
+                                                                    Adicionar Documento
+                                                                </Button>
                                                             )}
                                                         </div>
                                                     </>
@@ -800,6 +1533,24 @@ const ContainerManagement = () => {
                                 helperText="Capacidade em metros cúbicos"
                             />
                         </Col>
+                        <Col xs={12} md={6}>
+                            <div>
+                                <label className="form-label fw-bold">Status do Container</label>
+                                <select 
+                                    className="form-select"
+                                    value={formData.status || ''}
+                                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                                >
+                                    <option value="">Selecionar Status</option>
+                                    {statusOptions.slice(1).map(option => (
+                                        <option key={option.value} value={option.value}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </select>
+                                <div className="form-text">Status atual do container</div>
+                            </div>
+                        </Col>
                     </Row>
                 </Modal.Body>
                 <Modal.Footer>
@@ -850,10 +1601,20 @@ const ContainerManagement = () => {
             </Modal>
 
             {/* Modal de Produtos da Cotação */}
-            <Modal show={showQuoteModal} onHide={handleCloseQuoteModal} size="lg">
+            <Modal show={showQuoteModal} onHide={handleCloseQuoteModal} size="xl">
                 <Modal.Header closeButton>
                     <Modal.Title>
-                        Produtos da Cotação - {selectedQuote?.quoteName || selectedQuote?.importName || 'Cotação'}
+                        <div className="d-flex align-items-center">
+                            <span className="material-icons me-2" style={{fontSize: '20px', color: '#3498db'}}>inventory</span>
+                            <div>
+                                <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>
+                                    {selectedQuote?.quoteName || selectedQuote?.importName || 'Cotação'}
+                                </div>
+                                <div style={{ fontSize: '0.85rem', color: '#7f8c8d', fontWeight: 'normal' }}>
+                                    {selectedQuote?.factoryName || 'Fábrica não identificada'}
+                                </div>
+                            </div>
+                        </div>
                     </Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
@@ -861,44 +1622,53 @@ const ContainerManagement = () => {
                         <div>
                             {/* Informações da Cotação */}
                             <Card className="mb-3">
-                                <Card.Header>
-                                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                                        Informações da Cotação
+                                <Card.Header style={{ backgroundColor: '#f8f9fa', borderBottom: '1px solid #dee2e6' }}>
+                                    <Typography variant="h6" sx={{ fontWeight: 'bold', fontSize: '1rem' }}>
+                                        <span className="material-icons me-2" style={{fontSize: '18px', verticalAlign: 'middle'}}>info</span>
+                                        Resumo da Cotação
                                     </Typography>
                                 </Card.Header>
-                                <Card.Body>
+                                <Card.Body className="py-2">
                                     <Row>
-                                        <Col md={6}>
-                                            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                                                Nome da Cotação:
-                                            </Typography>
-                                            <Typography variant="body1" sx={{ mb: 2 }}>
-                                                {selectedQuote.quoteName || selectedQuote.importName || 'N/A'}
-                                            </Typography>
+                                        <Col md={3}>
+                                            <div className="text-center p-2" style={{ backgroundColor: '#e3f2fd', borderRadius: '6px' }}>
+                                                <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#1976d2', fontSize: '0.9rem' }}>
+                                                    Total de Produtos
+                                                </Typography>
+                                                <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#1976d2', fontSize: '1.2rem' }}>
+                                                    {quoteProducts.length}
+                                                </Typography>
+                                            </div>
                                         </Col>
-                                        <Col md={6}>
-                                            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                                                Fábrica:
-                                            </Typography>
-                                            <Typography variant="body1" sx={{ mb: 2 }}>
-                                                {selectedQuote.factoryName || 'N/A'}
-                                            </Typography>
+                                        <Col md={3}>
+                                            <div className="text-center p-2" style={{ backgroundColor: '#fff3e0', borderRadius: '6px' }}>
+                                                <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#f57c00', fontSize: '0.9rem' }}>
+                                                    CBM Total
+                                                </Typography>
+                                                <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#f57c00', fontSize: '1.2rem' }}>
+                                                    {formatBrazilianNumber(quoteProducts.reduce((sum, product) => sum + ((product.cbm || 0) * (product.ctns || 0)), 0), 3)} m³
+                                                </Typography>
+                                            </div>
                                         </Col>
-                                        <Col md={6}>
-                                            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                                                Total de Produtos:
-                                            </Typography>
-                                            <Typography variant="body1" sx={{ mb: 2 }}>
-                                                {quoteProducts.length} produtos
-                                            </Typography>
+                                        <Col md={3}>
+                                            <div className="text-center p-2" style={{ backgroundColor: '#e8f5e8', borderRadius: '6px' }}>
+                                                <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#2e7d32', fontSize: '0.9rem' }}>
+                                                    QTY Total
+                                                </Typography>
+                                                <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#2e7d32', fontSize: '1.2rem' }}>
+                                                    {formatBrazilianNumber(quoteProducts.reduce((sum, product) => sum + ((product.ctns || 0) * (product.unitCtn || 0)), 0), 0)}
+                                                </Typography>
+                                            </div>
                                         </Col>
-                                        <Col md={6}>
-                                            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                                                Valor Total da Cotação:
-                                            </Typography>
-                                            <Typography variant="body1" sx={{ mb: 2, color: '#e74c3c', fontWeight: 'bold' }}>
-                                                ¥ {formatBrazilianNumber(quoteProducts.reduce((sum, product) => sum + calculateProductAmount(product), 0), 2)}
-                                            </Typography>
+                                        <Col md={3}>
+                                            <div className="text-center p-2" style={{ backgroundColor: '#ffebee', borderRadius: '6px' }}>
+                                                <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#c62828', fontSize: '0.9rem' }}>
+                                                    Valor Total
+                                                </Typography>
+                                                <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#c62828', fontSize: '1.2rem' }}>
+                                                    ¥ {formatBrazilianNumber(quoteProducts.reduce((sum, product) => sum + calculateProductAmount(product), 0), 2)}
+                                                </Typography>
+                                            </div>
                                         </Col>
                                     </Row>
                                 </Card.Body>
@@ -924,78 +1694,75 @@ const ContainerManagement = () => {
                                             Nenhum produto encontrado para esta cotação
                                         </Typography>
                                     ) : (
-                                        <div className="row g-3">
-                                            {quoteProducts.map((product, index) => (
-                                                <div key={product.id} className="col-md-6">
-                                                    <Card className="h-100" style={{ border: '1px solid #e9ecef' }}>
-                                                        <Card.Body className="p-3">
-                                                            <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#2c3e50', mb: 2 }}>
-                                                                {product.referencia || product.ref || `Produto ${index + 1}`}
-                                                            </Typography>
-                                                            
-                                                            <div className="row g-2">
-                                                                <div className="col-12">
-                                                                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                                                                        Descrição:
-                                                                    </Typography>
-                                                                    <Typography variant="body2" sx={{ mb: 1 }}>
-                                                                        {product.description || product.descricao || 'N/A'}
-                                                                    </Typography>
+                                        <div className="table-responsive">
+                                            <table className="table table-hover">
+                                                <thead className="table-dark">
+                                                    <tr>
+                                                        <th style={{ fontSize: '0.9rem' }}>REF</th>
+                                                        <th style={{ fontSize: '0.9rem' }}>Descrição</th>
+                                                        <th style={{ fontSize: '0.9rem', textAlign: 'center' }}>CTNS</th>
+                                                        <th style={{ fontSize: '0.9rem', textAlign: 'center' }}>Unit/CTN</th>
+                                                        <th style={{ fontSize: '0.9rem', textAlign: 'center' }}>QTY</th>
+                                                        <th style={{ fontSize: '0.9rem', textAlign: 'center' }}>Preço Unit.</th>
+                                                        <th style={{ fontSize: '0.9rem', textAlign: 'center' }}>CBM</th>
+                                                        <th style={{ fontSize: '0.9rem', textAlign: 'center' }}>CBM Total</th>
+                                                        <th style={{ fontSize: '0.9rem', textAlign: 'center' }}>Valor Total</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {quoteProducts.map((product, index) => (
+                                                        <tr key={product.id || index}>
+                                                            <td style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>
+                                                                {product.referencia || product.ref || `REF-${index + 1}`}
+                                                            </td>
+                                                            <td style={{ fontSize: '0.85rem', maxWidth: '200px' }}>
+                                                                <div style={{ 
+                                                                    overflow: 'hidden', 
+                                                                    textOverflow: 'ellipsis', 
+                                                                    whiteSpace: 'nowrap',
+                                                                    maxWidth: '200px'
+                                                                }} title={product.description || product.descricao || 'N/A'}>
+                                                                    {product.description || product.descricao || 'N/A'}
                                                                 </div>
-                                                                
-                                                                <div className="col-6">
-                                                                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                                                                        CTNS:
-                                                                    </Typography>
-                                                                    <Typography variant="body2">
-                                                                        {formatBrazilianNumber(product.ctns || 0, 0)}
-                                                                    </Typography>
-                                                                </div>
-                                                                
-                                                                <div className="col-6">
-                                                                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                                                                        Unit/CTN:
-                                                                    </Typography>
-                                                                    <Typography variant="body2">
-                                                                        {formatBrazilianNumber(product.unitCtn || 0, 0)}
-                                                                    </Typography>
-                                                                </div>
-                                                                
-                                                                <div className="col-6">
-                                                                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                                                                        Preço Unit.:
-                                                                    </Typography>
-                                                                    <Typography variant="body2">
-                                                                        ¥ {formatBrazilianNumber(product.unitPrice || 0, 2)}
-                                                                    </Typography>
-                                                                </div>
-                                                                
-                                                                <div className="col-6">
-                                                                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                                                                        CBM:
-                                                                    </Typography>
-                                                                    <Typography variant="body2">
-                                                                        {formatBrazilianNumber(product.cbm || 0, 3)} m³
-                                                                    </Typography>
-                                                                </div>
-                                                                
-                                                                <div className="col-12 mt-2">
-                                                                    <div style={{ 
-                                                                        backgroundColor: '#f8f9fa', 
-                                                                        padding: '8px', 
-                                                                        borderRadius: '4px',
-                                                                        border: '1px solid #e9ecef'
-                                                                    }}>
-                                                                        <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#e74c3c' }}>
-                                                                            Valor Total: ¥ {formatBrazilianNumber(calculateProductAmount(product), 2)}
-                                                                        </Typography>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </Card.Body>
-                                                    </Card>
-                                                </div>
-                                            ))}
+                                                            </td>
+                                                            <td style={{ fontSize: '0.85rem', textAlign: 'center' }}>
+                                                                {formatBrazilianNumber(product.ctns || 0, 0)}
+                                                            </td>
+                                                            <td style={{ fontSize: '0.85rem', textAlign: 'center' }}>
+                                                                {formatBrazilianNumber(product.unitCtn || 0, 0)}
+                                                            </td>
+                                                            <td style={{ fontSize: '0.85rem', textAlign: 'center' }}>
+                                                                {formatBrazilianNumber((product.ctns || 0) * (product.unitCtn || 0), 0)}
+                                                            </td>
+                                                            <td style={{ fontSize: '0.85rem', textAlign: 'center' }}>
+                                                                ¥ {formatBrazilianNumber(product.unitPrice || 0, 2)}
+                                                            </td>
+                                                            <td style={{ fontSize: '0.85rem', textAlign: 'center' }}>
+                                                                {formatBrazilianNumber(product.cbm || 0, 3)} m³
+                                                            </td>
+                                                            <td style={{ fontSize: '0.85rem', textAlign: 'center' }}>
+                                                                {formatBrazilianNumber((product.cbm || 0) * (product.ctns || 0), 3)} m³
+                                                            </td>
+                                                            <td style={{ fontSize: '0.85rem', textAlign: 'center', fontWeight: 'bold', color: '#e74c3c' }}>
+                                                                ¥ {formatBrazilianNumber(calculateProductAmount(product), 2)}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                                <tfoot className="table-light">
+                                                    <tr>
+                                                        <td colSpan="7" style={{ fontSize: '0.9rem', fontWeight: 'bold', textAlign: 'right' }}>
+                                                            TOTAIS:
+                                                        </td>
+                                                        <td style={{ fontSize: '0.9rem', fontWeight: 'bold', textAlign: 'center', color: '#27ae60' }}>
+                                                            {formatBrazilianNumber(quoteProducts.reduce((sum, product) => sum + ((product.cbm || 0) * (product.ctns || 0)), 0), 3)} m³
+                                                        </td>
+                                                        <td style={{ fontSize: '0.9rem', fontWeight: 'bold', textAlign: 'center', color: '#e74c3c' }}>
+                                                            ¥ {formatBrazilianNumber(quoteProducts.reduce((sum, product) => sum + calculateProductAmount(product), 0), 2)}
+                                                        </td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
                                         </div>
                                     )}
                                 </Card.Body>
@@ -1005,6 +1772,37 @@ const ContainerManagement = () => {
                 </Modal.Body>
                 <Modal.Footer>
                     <Button variant="secondary" onClick={handleCloseQuoteModal}>
+                        Fechar
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+
+            {/* Modal Lightbox para Documentos */}
+            <Modal show={showDocumentLightbox} onHide={handleCloseDocumentLightbox} size="lg" centered>
+                <Modal.Header closeButton>
+                    <Modal.Title>
+                        <span className="material-icons me-2" style={{fontSize: '20px', verticalAlign: 'middle'}}>image</span>
+                        Visualizar Documento
+                    </Modal.Title>
+                </Modal.Header>
+                <Modal.Body className="text-center">
+                    {lightboxImageUrl && (
+                        <img 
+                            src={lightboxImageUrl} 
+                            alt={lightboxImageAlt}
+                            style={{ 
+                                maxWidth: '100%', 
+                                maxHeight: '70vh', 
+                                borderRadius: '8px',
+                                boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+                            }}
+                            className="img-fluid"
+                        />
+                    )}
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={handleCloseDocumentLightbox}>
+                        <span className="material-icons me-1" style={{fontSize: '16px'}}>close</span>
                         Fechar
                     </Button>
                 </Modal.Footer>

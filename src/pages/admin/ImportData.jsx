@@ -97,7 +97,7 @@ const ImportData = () => {
                     totalNetWeight: Number(item['T.N.W'] || item['totalNetWeight'] || item['Peso Líquido Total'] || 0),
                     pesoUnitario: Number(item['Peso Unitário(g)'] || item['pesoUnitario'] || item['unitWeight'] || item['Peso Unitário'] || 0),
                     factoryId: selectedFactory,
-                    factoryName: factories.find(f => f.id === selectedFactory)?.nomeFabrica || 'N/A'
+                    factoryName: factories.find(f => f.id === selectedFactory)?.name || 'N/A'
                 }));
 
                 setImportPreview(quotesData);
@@ -196,7 +196,7 @@ const ImportData = () => {
                     {selectedFactory && (
                         <Alert variant="info" className="mb-4">
                             <span className="material-icons me-2" style={{fontSize: '20px', verticalAlign: 'middle'}}>info</span>
-                            <strong>Fábrica pré-selecionada:</strong> {factories.find(f => f.id === selectedFactory)?.nomeFabrica}
+                            <strong>Fábrica pré-selecionada:</strong> {factories.find(f => f.id === selectedFactory)?.name}
                         </Alert>
                     )}
 
@@ -212,7 +212,7 @@ const ImportData = () => {
                                     <option value="">Escolha uma fábrica...</option>
                                     {factories.map(factory => (
                                         <option key={factory.id} value={factory.id}>
-                                            {factory.nomeFabrica} - {factory.localizacao}
+                                            {factory.name} - {factory.localizacao}
                                         </option>
                                     ))}
                                 </Form.Select>

@@ -382,7 +382,7 @@ const CreateQuote = () => {
                                     <option value="">Selecione uma fábrica</option>
                                     {factories.map((factory) => (
                                         <option key={factory.id} value={factory.id}>
-                                            {factory.nomeFabrica}
+                                            {factory.name}
                                         </option>
                                     ))}
                                 </TextField>

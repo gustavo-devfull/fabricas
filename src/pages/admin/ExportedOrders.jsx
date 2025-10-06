@@ -502,13 +502,12 @@ const ExportedOrders = () => {
                 const factoryData = doc.data();
                 console.log(`🏭 [EXPORTED ORDERS] Dados da fábrica ${doc.id}:`, factoryData);
                 
-                const factoryName = factoryData.name || factoryData.nomeFabrica || doc.id;
+                const factoryName = factoryData.name || doc.id;
                 factoriesMap.set(doc.id, factoryName);
                 console.log(`🏭 [EXPORTED ORDERS] Mapeando fábrica: ${doc.id} -> ${factoryName}`, {
                     docId: doc.id,
                     factoryData,
                     name: factoryData.name,
-                    nomeFabrica: factoryData.nomeFabrica,
                     finalName: factoryName
                 });
             });

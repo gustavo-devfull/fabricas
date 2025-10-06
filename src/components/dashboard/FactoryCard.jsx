@@ -51,7 +51,7 @@ const FactoryCard = ({
                             hyphens: 'auto'
                         }}
                     >
-                        {factory.name || factory.nomeFabrica}
+                        {factory.name}
                     </Typography>
                 </Box>
             </Box>

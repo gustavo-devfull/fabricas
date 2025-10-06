@@ -32,7 +32,7 @@ const AdminDashboard = () => {
     const [showAddForm, setShowAddForm] = useState(false);
     const [editingFactory, setEditingFactory] = useState(null);
     const [factoryForm, setFactoryForm] = useState({
-        nomeFabrica: '',
+        name: '',
         localizacao: '',
         segmento: '',
         nomeContato: '',
@@ -158,7 +158,7 @@ const AdminDashboard = () => {
         try {
             await addFactory(factoryForm);
             setFactoryForm({
-                nomeFabrica: '',
+                name: '',
                 localizacao: '',
                 segmento: '',
                 nomeContato: '',
@@ -203,7 +203,7 @@ const AdminDashboard = () => {
             await updateFactory(editingFactory.id, factoryForm);
             setEditingFactory(null);
             setFactoryForm({
-                nomeFabrica: '',
+                name: '',
                 localizacao: '',
                 segmento: '',
                 nomeContato: '',
@@ -238,7 +238,7 @@ const AdminDashboard = () => {
         setShowAddForm(false);
         setEditingFactory(null);
         setFactoryForm({
-            nomeFabrica: '',
+            name: '',
             localizacao: '',
             segmento: '',
             nomeContato: '',
@@ -559,12 +559,12 @@ const AdminDashboard = () => {
             };
             
             console.log('📝 Dados preparados para exportação:', {
-                factory: factoryExportData.factory.name || factoryExportData.factory.nomeFabrica,
+                factory: factoryExportData.factory.name,
                 productsCount: factoryExportData.imports[0].selectedProducts.length
             });
             
             // Gerar nome do arquivo baseado na fábrica e data
-            const factoryName = (currentFactory.name || currentFactory.nomeFabrica).replace(/[^a-zA-Z0-9]/g, '_');
+            const factoryName = currentFactory.name.replace(/[^a-zA-Z0-9]/g, '_');
             const fileName = `${factoryName}_cotações_exportadas_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.xlsx`;
             
             // Executar exportação usando o serviço existente
@@ -1189,7 +1189,7 @@ const AdminDashboard = () => {
             <QuotesSection
                 show={showQuotes}
                 selectedFactoryForQuotes={selectedFactoryForQuotes}
-                factoryName={factories.find(f => f.id === selectedFactoryForQuotes)?.name || factories.find(f => f.id === selectedFactoryForQuotes)?.nomeFabrica}
+                factoryName={factories.find(f => f.id === selectedFactoryForQuotes)?.name}
                 quotes={quotes}
                 allQuotes={allQuotes}
                 quoteImports={quoteImports}

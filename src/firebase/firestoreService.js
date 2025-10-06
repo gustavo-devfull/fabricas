@@ -90,7 +90,16 @@ export const getAllFactories = async () => {
     const querySnapshot = await getDocs(q);
     const factories = [];
     querySnapshot.forEach((doc) => {
-        factories.push({ id: doc.id, ...doc.data() });
+        const data = doc.data();
+        
+        // Garantir que o campo 'name' esteja sempre presente
+        const factoryName = data.name || data.nomeFabrica || data.factoryName || data.title || `Fábrica ${doc.id.substring(0, 8)}`;
+        
+        factories.push({ 
+            id: doc.id, 
+            ...data,
+            name: factoryName // Garantir que 'name' esteja sempre definido
+        });
     });
     return factories;
 };
